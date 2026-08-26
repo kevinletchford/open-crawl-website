@@ -1,0 +1,14 @@
+{
+  "extends": "astro/tsconfigs/strict",
+  "include": [".astro/types.d.ts", "**/*"],
+  // ".astro" must NOT be excluded — that would cancel the types.d.ts include
+  // above, which is what provides the `astro:content` module declarations.
+  "exclude": ["dist", "node_modules", ".wrangler"],
+  "compilerOptions": {
+    // No "baseUrl": TypeScript 6 deprecates it (TS5101) and removes it in 7.
+    // Without it, "paths" resolve relative to this file's directory.
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  }
+}
