@@ -1,0 +1,32 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro'
+import { SITE_DESCRIPTION } from '@/consts'
+---
+
+<BaseLayout description={SITE_DESCRIPTION}>
+  <section class="max-w-2xl">
+    <p class="text-sm font-medium tracking-wide text-brand-600 uppercase">
+      Open source
+    </p>
+    <h1 class="mt-3 text-5xl font-bold tracking-tight text-balance">
+      Crawl the web, openly.
+    </h1>
+    <p class="mt-6 text-lg leading-relaxed text-[color:var(--color-ink-muted)]">
+      {SITE_DESCRIPTION}
+    </p>
+    <div class="mt-8 flex flex-wrap gap-3">
+      <a
+        href="/blog"
+        class="rounded-[--radius-card] bg-brand-600 px-5 py-2.5 font-medium text-white transition-colors hover:bg-brand-700"
+      >
+        Read the blog
+      </a>
+      <a
+        href="https://github.com/kevinletchford/open-crawl-website"
+        class="rounded-[--radius-card] border border-black/15 px-5 py-2.5 font-medium transition-colors hover:bg-[color:var(--color-surface-alt)]"
+      >
+        View on GitHub
+      </a>
+    </div>
+  </section>
+</BaseLayout>
