@@ -1,0 +1,21 @@
+# Local mirror of the checks in .github/workflows/ci.yml, so CI rarely fails.
+# Hooks are installed by the `prepare` script in package.json.
+
+pre-commit:
+  parallel: true
+  jobs:
+    - name: eslint
+      glob: '*.{js,mjs,cjs,ts,tsx,astro}'
+      run: pnpm exec eslint --fix --no-warn-ignored {staged_files}
+      stage_fixed: true
+
+    - name: prettier
+      glob: '*.{js,mjs,cjs,ts,tsx,astro,css,md,mdx,json,jsonc,yml,yaml}'
+      run: pnpm exec prettier --write --ignore-unknown {staged_files}
+      stage_fixed: true
+
+pre-push:
+  jobs:
+    # Whole-project type check — too slow for every commit, cheap enough here.
+    - name: astro-check
+      run: pnpm run check
