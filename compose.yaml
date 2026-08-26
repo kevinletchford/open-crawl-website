@@ -1,0 +1,14 @@
+services:
+  web:
+    build: .
+    ports:
+      - '4321:4321'
+    environment:
+      # Switches Vite's watcher to polling — see astro.config.ts.
+      DOCKER: 'true'
+    volumes:
+      - .:/app
+      # Anonymous volume: keeps the container's linux-x64/arm64 binaries
+      # (rolldown, esbuild, sharp) instead of letting the host's darwin
+      # node_modules shadow them through the bind mount above.
+      - /app/node_modules
