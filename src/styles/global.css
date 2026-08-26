@@ -1,0 +1,55 @@
+@import 'tailwindcss';
+
+/*
+ * Open-Crawl brand tokens.
+ *
+ * Tailwind v4 generates utilities directly from these custom properties, so
+ * `--color-brand-500` gives you `bg-brand-500`, `text-brand-500`, etc. These
+ * values are a deliberate placeholder scale — swap them for the real brand
+ * palette here and every utility across the site updates with them.
+ */
+@theme {
+  --color-brand-50: oklch(0.97 0.02 240);
+  --color-brand-100: oklch(0.94 0.04 240);
+  --color-brand-200: oklch(0.88 0.08 240);
+  --color-brand-300: oklch(0.8 0.12 240);
+  --color-brand-400: oklch(0.71 0.16 245);
+  --color-brand-500: oklch(0.62 0.19 250);
+  --color-brand-600: oklch(0.54 0.19 252);
+  --color-brand-700: oklch(0.46 0.16 254);
+  --color-brand-800: oklch(0.39 0.12 255);
+  --color-brand-900: oklch(0.33 0.08 256);
+  --color-brand-950: oklch(0.22 0.05 258);
+
+  --color-ink: oklch(0.19 0.01 260);
+  --color-ink-muted: oklch(0.52 0.01 260);
+  --color-surface: oklch(1 0 0);
+  --color-surface-alt: oklch(0.97 0.003 260);
+
+  --font-sans:
+    'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
+    sans-serif;
+  --font-mono:
+    ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+
+  --radius-card: 0.875rem;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-surface);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    text-rendering: optimizeLegibility;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+  }
+}
