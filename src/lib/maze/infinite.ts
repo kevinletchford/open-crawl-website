@@ -7,10 +7,11 @@
  * proportions: zooming in by one ring looks just like where you started. That
  * is what lets the hero zoom forever with no seams.
  *
- * Rings are carved with Eller's algorithm, which only needs the previous
- * ring's state, so the maze can stream inward indefinitely while every
- * corridor stays connected to the ones around it. Like the logo, the maze can
- * be split into quadrants by an open cross channel running all the way in.
+ * Rings are carved one at a time from the previous ring's state alone, so
+ * the maze can stream inward indefinitely. Every cell is joined to the
+ * corridors reachable from the entrance, exactly once, so the whole maze is
+ * one connected tree: no loops, no sealed-off pockets. Like the logo, it can
+ * optionally be split into quadrants by an open cross channel running in.
  *
  * Units are ring-local: a ring's outer edge is radius 1 and its inner edge is
  * radius `ratio`. Scale ring k by `ratio ** k` to place it in the maze.
@@ -44,7 +45,7 @@ export interface Sector {
 export interface RingCell {
   a0: number
   a1: number
-  /** Crawl steps from the entrances; -1 if not reached from outside. */
+  /** Crawl steps from the entrance. */
   distance: number
 }
 
@@ -55,8 +56,8 @@ export interface InfiniteRing {
 }
 
 const TAU = Math.PI * 2
-/** Set id shared by every cell touching the cross channel. */
-const CHANNEL = 0
+/** Set id of every cell already connected to the entrance. */
+const ROOT = 0
 
 export class InfiniteMaze {
   readonly cells: number
@@ -73,8 +74,8 @@ export class InfiniteMaze {
   private readonly vertical: number
   private index = 0
   private nextSet = 1
-  /** Per cell of the next ring: inherited set id, or -1 if not linked. */
-  private inherited: Int32Array
+  /** Per cell of the next ring: 1 if a passage leads in from outside. */
+  private linked: Uint8Array
   /** Per cell of the next ring: crawl distance arriving from outside. */
   private arriving: Float64Array
 
@@ -84,9 +85,9 @@ export class InfiniteMaze {
     this.cells = options.cells ?? 24
     this.ratio = options.ratio ?? 0.78
     this.wall = options.wall ?? 0.5
-    this.cross = options.cross ?? true
+    this.cross = options.cross ?? false
     this.horizontal = options.horizontal ?? 0.7
-    this.vertical = options.vertical ?? 0.18
+    this.vertical = options.vertical ?? 0.2
     this.rng = mulberry32(options.seed)
     if (this.cross && this.cells % 4 !== 0) {
       throw new Error('cells must be a multiple of 4 when cross is on')
@@ -94,11 +95,14 @@ export class InfiniteMaze {
     const width = 1 - this.ratio
     this.wedge = this.wall * width
     this.channel = ((1 - this.wall) * width) / 2
-    this.inherited = new Int32Array(this.cells).fill(-1)
     // Ring 0 is entered from outside: through the cross channel, or by a
     // doorway at 12 o'clock without it.
+    this.linked = new Uint8Array(this.cells)
     this.arriving = new Float64Array(this.cells).fill(Infinity)
-    if (!this.cross) this.arriving[0] = 0
+    if (!this.cross) {
+      this.linked[0] = 1
+      this.arriving[0] = 0
+    }
   }
 
   /** True if the boundary after cell `i` lies on the cross. */
@@ -118,49 +122,49 @@ export class InfiniteMaze {
     const k = this.index++
     const step = TAU / n
 
-    // Sets: cells on the cross share the channel's set; cells linked from the
-    // ring outside inherit its set; the rest start their own.
+    // Sets: cells reached from outside (or the cross channel) are already
+    // connected to the entrance; the rest start out on their own.
     const sets = new Int32Array(n)
     for (let i = 0; i < n; i++) {
-      sets[i] = this.touchesCross(i)
-        ? CHANNEL
-        : this.inherited[i] >= 0
-          ? this.inherited[i]
-          : this.nextSet++
+      sets[i] = this.linked[i] || this.touchesCross(i) ? ROOT : this.nextSet++
     }
     const merge = (from: number, to: number) => {
       for (let i = 0; i < n; i++) if (sets[i] === from) sets[i] = to
     }
-
-    // Horizontal links. The cross is always open: it's the channel.
     const openAfter = new Uint8Array(n)
+    const link = (i: number) => {
+      const j = (i + 1) % n
+      openAfter[i] = 1
+      // Keep ROOT as the surviving id, so "connected" stays easy to test.
+      if (sets[j] === ROOT) merge(sets[i], ROOT)
+      else merge(sets[j], sets[i])
+    }
+
+    // Horizontal links between cells not yet connected to each other, so
+    // there are no loops. The cross is always open: it's the channel.
     for (let i = 0; i < n; i++) {
       const j = (i + 1) % n
-      if (this.onCross(i)) {
-        openAfter[i] = 1
-      } else if (sets[i] !== sets[j] && rng() < this.horizontal) {
-        openAfter[i] = 1
-        merge(sets[j], sets[i])
+      if (this.onCross(i)) openAfter[i] = 1
+      else if (sets[i] !== sets[j] && rng() < this.horizontal) link(i)
+    }
+    // Then join any pocket still cut off from the entrance through a random
+    // wall on its edge, until the whole ring is connected.
+    for (;;) {
+      const edges: number[] = []
+      for (let i = 0; i < n; i++) {
+        const j = (i + 1) % n
+        if (sets[i] !== sets[j] && (sets[i] !== ROOT || sets[j] !== ROOT)) {
+          edges.push(i)
+        }
       }
+      if (!edges.length) break
+      link(edges[Math.floor(rng() * edges.length)])
     }
 
-    // Vertical links: every set (except the channel, which carries on by
-    // itself) needs at least one way further in.
+    // Vertical links: random passages further in, at least one per ring.
     const down = new Uint8Array(n)
-    const members = new Map<number, number[]>()
-    for (let i = 0; i < n; i++) {
-      if (sets[i] === CHANNEL) continue
-      const list = members.get(sets[i]) ?? []
-      list.push(i)
-      members.set(sets[i], list)
-    }
-    for (const list of members.values()) {
-      down[list[Math.floor(rng() * list.length)]] = 1
-      for (const i of list) if (rng() < this.vertical) down[i] = 1
-    }
-    for (let i = 0; i < n; i++) {
-      if (sets[i] === CHANNEL && rng() < this.vertical / 2) down[i] = 1
-    }
+    for (let i = 0; i < n; i++) if (rng() < this.vertical) down[i] = 1
+    down[Math.floor(rng() * n)] = 1
 
     // Crawl distances: arrivals from outside, the channel (one step per
     // ring), then spread around the ring through its open links.
@@ -187,12 +191,10 @@ export class InfiniteMaze {
     }
 
     // Hand state to the next ring in.
-    this.inherited = new Int32Array(n).fill(-1)
+    this.linked = down
     this.arriving = new Float64Array(n).fill(Infinity)
     for (let i = 0; i < n; i++) {
-      if (!down[i]) continue
-      this.inherited[i] = sets[i] === CHANNEL ? -1 : sets[i]
-      this.arriving[i] = distance[i] + 1
+      if (down[i]) this.arriving[i] = distance[i] + 1
     }
 
     return {
