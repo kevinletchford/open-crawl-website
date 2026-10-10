@@ -9,7 +9,6 @@
  */
 import {
   cellFloorPath,
-  channelFloorPath,
   crawl as runCrawl,
   generateMaze,
   mazeWallsPath,
@@ -31,7 +30,7 @@ const viewBox = `${-r} ${-r} ${r * 2} ${r * 2}`
 
 let trail: { d: string; t: number }[] = []
 if (crawl > 0) {
-  const { cellDistance, channelDistance, maxDistance } = runCrawl(maze)
+  const { cellDistance, maxDistance } = runCrawl(maze)
   const limit = maxDistance * crawl
   trail = maze.cells
     .filter((cell) => cellDistance[cell.id] <= limit)
@@ -39,14 +38,8 @@ if (crawl > 0) {
       d: cellFloorPath(maze, cell),
       t: cellDistance[cell.id] / maxDistance,
     }))
-  channelDistance.forEach((distance, i) => {
-    if (distance <= limit) {
-      trail.push({
-        d: channelFloorPath(maze, Math.floor(i / maze.rings), i % maze.rings),
-        t: distance / maxDistance,
-      })
-    }
-  })
+  // Cross channels aren't drawn: the cells either side already cover them,
+  // and overlapping floors would show up as brighter blocks.
 }
 ---
 
@@ -62,7 +55,7 @@ if (crawl > 0) {
     trail.length > 0 && (
       <g style="fill: var(--maze-trail, currentColor); opacity: var(--maze-trail-opacity, 0.22)">
         {trail.map((floor) => (
-          <path d={floor.d} fill-opacity={1 - floor.t * 0.75} />
+          <path d={floor.d} fill-opacity={1 - floor.t * 0.6} />
         ))}
       </g>
     )

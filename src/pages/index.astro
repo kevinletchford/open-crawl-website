@@ -1,24 +1,262 @@
 ---
-import Logo from '@/components/Logo.astro'
+import InfiniteMazeSvg from '@/components/InfiniteMazeSvg.astro'
+import InviteCTA from '@/components/InviteCTA.astro'
+import MazeSvg from '@/components/MazeSvg.astro'
 import Section from '@/components/Section.astro'
+import { SITE_DESCRIPTION } from '@/consts'
+import { SYNTHETIC } from '@/data/benchmarks'
 import BaseLayout from '@/layouts/BaseLayout.astro'
-import { GITHUB_URL, SITE_DESCRIPTION } from '@/consts'
+
+// Real user-agent tokens of the AI crawlers and assistants OpenCrawl emulates.
+const agents = [
+  'GPTBot',
+  'OAI-SearchBot',
+  'ChatGPT-User',
+  'ClaudeBot',
+  'Claude-User',
+  'PerplexityBot',
+  'Google-Extended',
+  'Applebot-Extended',
+  'Meta-ExternalAgent',
+  'Amazonbot',
+  'CCBot',
+  'Bytespider',
+]
+
+const problems = [
+  {
+    title: 'Blocked at the door',
+    body: 'A robots.txt rule written years ago quietly turns away the agents that now answer your customers’ questions.',
+  },
+  {
+    title: 'Lost behind JavaScript',
+    body: 'Most AI crawlers don’t run your scripts. If the content only appears after hydration, to them it isn’t there.',
+  },
+  {
+    title: 'Found, but never quoted',
+    body: 'Pages without clear structure, headings and facts are hard to cite — so answer engines cite someone else.',
+  },
+]
+
+const features = [
+  {
+    title: 'Crawl as every agent',
+    body: 'Run the same crawl as GPTBot, ClaudeBot, PerplexityBot and more, honouring each one’s rules and limits.',
+  },
+  {
+    title: 'AI readability score',
+    body: 'Every page scored on access, rendering, structure and quotability, with the fixes ranked by impact.',
+  },
+  {
+    title: 'Agent access audit',
+    body: 'See exactly which agents your robots.txt, llms.txt, meta robots and headers allow — page by page.',
+  },
+  {
+    title: 'Render diff',
+    body: 'Compare what a browser shows with what a non-JS crawler fetches, and find the content that goes missing.',
+  },
+  {
+    title: 'Plugins at every step',
+    body: 'Hook into the crawl before the audit, before and after each page is captured, and in the renderer itself.',
+  },
+  {
+    title: 'An MCP server for your agents',
+    body: 'Let your own AI tools query crawl results directly: “which product pages can’t ClaudeBot read?”',
+  },
+]
+
+const steps = [
+  {
+    title: 'Add your site',
+    body: 'Create a project with your domain. OpenCrawl reads your robots.txt, sitemaps and llms.txt.',
+  },
+  {
+    title: 'Run an audit',
+    body: 'Crawl as the AI agents you care about. Every page, image and script is captured as it sees them.',
+  },
+  {
+    title: 'Fix and re-crawl',
+    body: 'Work through the ranked fixes, then re-run the audit to watch the maze open up.',
+  },
+]
+
+const fastest = Math.max(...SYNTHETIC.results.map((r) => r.rps))
+const rps = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 })
 ---
 
 <BaseLayout description={SITE_DESCRIPTION}>
-  <Section tone="dark" innerClass="py-28 sm:py-40">
-    <Logo variant="mark" class="size-16" label="" />
-    <h1
-      class="mt-10 max-w-3xl text-5xl font-semibold tracking-tight text-balance sm:text-7xl"
+  <!-- Hero -->
+  <Section tone="dark" innerClass="pt-16 pb-24 sm:pt-24 sm:pb-32">
+    <div
+      slot="backdrop"
+      class="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(60%_60%_at_75%_45%,color-mix(in_oklch,white_7%,transparent),transparent)]"
     >
-      See your site the way AI sees it.
-    </h1>
-    <p class="mt-6 max-w-2xl text-lg leading-relaxed text-ink-muted">
-      {SITE_DESCRIPTION}
-    </p>
-    <div class="mt-10 flex flex-wrap gap-3">
-      <a href="/blog" class="btn btn-primary">Read the blog</a>
-      <a href={GITHUB_URL} class="btn btn-ghost">View on GitHub</a>
+    </div>
+    <div class="grid items-center gap-12 lg:grid-cols-[1.05fr_1fr]">
+      <div>
+        <h1
+          class="text-5xl font-semibold tracking-tight text-balance sm:text-7xl"
+        >
+          Your site is a maze. AI is crawling it.
+        </h1>
+        <p class="mt-6 max-w-xl text-lg leading-relaxed text-ink-muted">
+          {SITE_DESCRIPTION}
+        </p>
+        <div class="mt-10 flex flex-wrap gap-3">
+          <a href="/invite" class="btn btn-primary">Request an invite</a>
+          <a href="#how-it-works" class="btn btn-ghost">How it works</a>
+        </div>
+      </div>
+      <div
+        data-hero-maze
+        class="relative mx-auto aspect-square w-full max-w-xl"
+      >
+        <InfiniteMazeSvg
+          seed={2026}
+          crawl={40}
+          class="size-full text-white"
+          label="An endless circular maze spiralling inward, partly lit up by a crawl"
+        />
+      </div>
     </div>
   </Section>
+
+  <!-- Agents -->
+  <Section width="default" innerClass="py-16 sm:py-20">
+    <p class="text-center text-sm text-ink-muted">
+      Crawls the way the agents that matter do
+    </p>
+    <ul
+      class="mt-6 flex flex-wrap justify-center gap-2"
+      aria-label="AI crawlers OpenCrawl emulates"
+    >
+      {
+        agents.map((agent) => (
+          <li class="rounded-full border border-line px-3.5 py-1.5 font-mono text-xs text-ink-muted">
+            {agent}
+          </li>
+        ))
+      }
+    </ul>
+  </Section>
+
+  <!-- Problems -->
+  <Section tone="alt">
+    <div class="max-w-2xl">
+      <h2 class="text-4xl font-semibold tracking-tight text-balance">
+        Search engines learned your site. AI agents haven’t.
+      </h2>
+      <p class="mt-4 text-lg text-ink-muted">
+        A growing share of discovery happens inside AI answers. Those answers
+        can only cite what their crawlers could reach, render and understand.
+      </p>
+    </div>
+    <div class="mt-14 grid gap-10 md:grid-cols-3">
+      {
+        problems.map((problem, i) => (
+          <div>
+            <MazeSvg
+              seed={11 + i}
+              rings={2}
+              cellLength={2.2}
+              class="size-12 text-ink"
+            />
+            <h3 class="mt-5 text-lg font-semibold">{problem.title}</h3>
+            <p class="mt-2 text-ink-muted">{problem.body}</p>
+          </div>
+        ))
+      }
+    </div>
+  </Section>
+
+  <!-- Features -->
+  <Section tone="dark">
+    <div class="max-w-2xl">
+      <h2 class="text-4xl font-semibold tracking-tight text-balance">
+        A map of every path through your site.
+      </h2>
+    </div>
+    <div
+      class="mt-14 grid gap-px overflow-hidden rounded-card border border-line bg-night-line sm:grid-cols-2 lg:grid-cols-3"
+    >
+      {
+        features.map((feature, i) => (
+          <div class="bg-night p-8">
+            <MazeSvg
+              seed={100 + i}
+              rings={2}
+              cellLength={2.2}
+              crawl={(i + 1) / features.length}
+              class="size-10 text-white/80"
+            />
+            <h3 class="mt-6 font-semibold">{feature.title}</h3>
+            <p class="mt-2 text-sm leading-relaxed text-ink-muted">
+              {feature.body}
+            </p>
+          </div>
+        ))
+      }
+    </div>
+    <a href="/product" class="btn btn-ghost mt-10">Explore the product →</a>
+  </Section>
+
+  <!-- How it works -->
+  <Section id="how-it-works">
+    <div class="max-w-2xl">
+      <h2 class="text-4xl font-semibold tracking-tight text-balance">
+        From dead ends to open paths in three steps.
+      </h2>
+    </div>
+    <ol class="mt-14 grid gap-10 md:grid-cols-3">
+      {
+        steps.map((step, i) => (
+          <li class="border-t border-ink pt-6">
+            <span class="font-mono text-sm text-ink-muted">0{i + 1}</span>
+            <h3 class="mt-3 text-xl font-semibold">{step.title}</h3>
+            <p class="mt-2 text-ink-muted">{step.body}</p>
+          </li>
+        ))
+      }
+    </ol>
+  </Section>
+
+  <!-- Speed -->
+  <Section tone="alt">
+    <div class="grid items-center gap-12 lg:grid-cols-2">
+      <div>
+        <h2 class="text-4xl font-semibold tracking-tight text-balance">
+          {rps.format(fastest)} requests a second, when the network gets out of the
+          way.
+        </h2>
+        <p class="mt-4 text-lg text-ink-muted">
+          The crawl engine is benchmarked across Go, Rust and TypeScript on
+          every change, against a synthetic site and the live web.
+        </p>
+        <a href="/benchmarks" class="btn btn-ghost mt-8">See the benchmarks →</a
+        >
+      </div>
+      <dl class="space-y-5">
+        {
+          SYNTHETIC.results.map((result) => (
+            <div>
+              <div class="flex justify-between text-sm">
+                <dt class="font-medium">{result.runtime}</dt>
+                <dd class="font-mono text-ink-muted">
+                  {rps.format(result.rps)} req/s
+                </dd>
+              </div>
+              <div class="mt-2 h-2 overflow-hidden rounded-full bg-line">
+                <div
+                  class="h-full rounded-full bg-ink"
+                  style={`width: ${(result.rps / fastest) * 100}%`}
+                />
+              </div>
+            </div>
+          ))
+        }
+      </dl>
+    </div>
+  </Section>
+
+  <InviteCTA />
 </BaseLayout>

@@ -1,4 +1,5 @@
 ---
+import MazeSvg from '@/components/MazeSvg.astro'
 import Section from '@/components/Section.astro'
 import BaseLayout from '@/layouts/BaseLayout.astro'
 ---
@@ -8,7 +9,15 @@ import BaseLayout from '@/layouts/BaseLayout.astro'
   description="That page doesn't exist on OpenCrawl."
 >
   <Section width="narrow">
-    <h1 class="text-5xl font-semibold tracking-tight">Dead end.</h1>
+    <MazeSvg
+      seed={404}
+      rings={4}
+      cross={false}
+      crawl={0.4}
+      class="size-28 text-ink"
+      label="A maze with a crawl that stops partway, at a dead end"
+    />
+    <h1 class="mt-10 text-5xl font-semibold tracking-tight">Dead end.</h1>
     <p class="mt-4 text-lg text-ink-muted">
       Even crawlers hit walls. The page you were looking for isn't here — it may
       have moved, or the link may be out of date.

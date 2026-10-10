@@ -20,4 +20,8 @@ export const SITE_TWITTER = '@opencrawl'
 export const GITHUB_URL = 'https://github.com/kevinletchford/open-crawl'
 
 /** Primary navigation, shared by the header and footer. */
-export const NAV = [{ href: '/blog', label: 'Blog' }]
+export const NAV = [
+  { href: '/product', label: 'Product' },
+  { href: '/benchmarks', label: 'Benchmarks' },
+  { href: '/blog', label: 'Blog' },
+]

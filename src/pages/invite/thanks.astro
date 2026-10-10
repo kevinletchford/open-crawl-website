@@ -1,0 +1,23 @@
+---
+import MazeSvg from '@/components/MazeSvg.astro'
+import Section from '@/components/Section.astro'
+import BaseLayout from '@/layouts/BaseLayout.astro'
+---
+
+<BaseLayout
+  title="You’re on the list"
+  description="Thanks for requesting an OpenCrawl invite."
+>
+  <meta name="robots" content="noindex" slot="head" />
+  <Section width="narrow" innerClass="py-24 text-center sm:py-32">
+    <MazeSvg seed={2026} rings={4} crawl={1} class="mx-auto size-28 text-ink" />
+    <h1 class="mt-10 text-5xl font-semibold tracking-tight">
+      You’re on the list.
+    </h1>
+    <p class="mx-auto mt-5 max-w-md text-lg text-ink-muted">
+      We’re letting people in a few at a time. Watch your inbox — your invite
+      will come from the OpenCrawl team.
+    </p>
+    <a href="/" class="btn btn-ghost mt-10">Back to the start</a>
+  </Section>
+</BaseLayout>

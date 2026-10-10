@@ -5,7 +5,10 @@ import { GITHUB_URL, NAV, SITE_TITLE } from '@/consts'
 const year = new Date().getFullYear()
 
 const columns = [
-  { heading: 'Product', links: NAV },
+  {
+    heading: 'Product',
+    links: [...NAV, { href: '/invite', label: 'Request an invite' }],
+  },
   {
     heading: 'Open source',
     links: [

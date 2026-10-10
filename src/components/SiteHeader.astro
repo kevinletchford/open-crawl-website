@@ -1,6 +1,6 @@
 ---
 import Logo from '@/components/Logo.astro'
-import { GITHUB_URL, NAV } from '@/consts'
+import { NAV } from '@/consts'
 
 const path = Astro.url.pathname
 const isCurrent = (href: string) =>
@@ -41,8 +41,8 @@ const isCurrent = (href: string) =>
     </nav>
 
     <div class="flex items-center gap-3">
-      <a href={GITHUB_URL} class="btn btn-ghost hidden sm:inline-flex">
-        GitHub
+      <a href="/invite" class="btn btn-primary hidden sm:inline-flex">
+        Request an invite
       </a>
 
       <details class="group relative md:hidden">
@@ -70,7 +70,7 @@ const isCurrent = (href: string) =>
         </summary>
         <nav
           aria-label="Mobile"
-          class="absolute top-12 right-0 w-56 rounded-[--radius-card] border border-line bg-surface p-2 shadow-lg"
+          class="absolute top-12 right-0 w-56 rounded-card border border-line bg-surface p-2 shadow-lg"
         >
           <ul>
             {
@@ -88,10 +88,10 @@ const isCurrent = (href: string) =>
             }
             <li class="mt-1 border-t border-line pt-1">
               <a
-                class="block rounded-lg px-3 py-2 text-sm hover:bg-surface-alt"
-                href={GITHUB_URL}
+                class="block rounded-lg px-3 py-2 text-sm font-medium text-ink hover:bg-surface-alt"
+                href="/invite"
               >
-                GitHub
+                Request an invite
               </a>
             </li>
           </ul>

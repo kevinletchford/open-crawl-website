@@ -1,0 +1,176 @@
+---
+/**
+ * The "Request an invite" form. Without JavaScript it is a plain POST to the
+ * Worker (worker/index.ts), which answers with a redirect. With JavaScript it
+ * submits in place and swaps itself for a confirmation.
+ *
+ * Role values must match ROLES in worker/index.ts.
+ */
+interface Props {
+  id?: string
+}
+
+const { id = 'invite-form' } = Astro.props
+
+const roles = [
+  { value: 'marketing', label: 'Marketing' },
+  { value: 'seo', label: 'SEO' },
+  { value: 'engineering', label: 'Engineering' },
+  { value: 'product', label: 'Product' },
+  { value: 'founder', label: 'Founder / leadership' },
+  { value: 'agency', label: 'Agency' },
+  { value: 'other', label: 'Something else' },
+]
+
+const field =
+  'mt-1.5 block w-full rounded-xl border border-line bg-transparent px-3.5 py-2.5 text-sm placeholder:text-ink-muted/70 focus:border-ink focus:outline-none'
+---
+
+<div data-invite class="relative">
+  <form
+    id={id}
+    method="post"
+    action="/api/invite"
+    class="grid gap-4 sm:grid-cols-2"
+    novalidate
+  >
+    <label class="text-sm font-medium sm:col-span-2">
+      Work email <span class="text-ink-muted">(required)</span>
+      <input
+        class={field}
+        type="email"
+        name="email"
+        required
+        maxlength="254"
+        autocomplete="email"
+        placeholder="you@company.com"
+      />
+    </label>
+    <label class="text-sm font-medium">
+      Name
+      <input
+        class={field}
+        type="text"
+        name="name"
+        maxlength="120"
+        autocomplete="name"
+      />
+    </label>
+    <label class="text-sm font-medium">
+      Company
+      <input
+        class={field}
+        type="text"
+        name="company"
+        maxlength="120"
+        autocomplete="organization"
+      />
+    </label>
+    <label class="text-sm font-medium">
+      Website
+      <input
+        class={field}
+        type="text"
+        name="website"
+        maxlength="2048"
+        inputmode="url"
+        autocomplete="url"
+        placeholder="company.com"
+      />
+    </label>
+    <label class="text-sm font-medium">
+      Role
+      <select class:list={[field, 'appearance-none']} name="role">
+        <option value="">Choose one</option>
+        {roles.map((role) => <option value={role.value}>{role.label}</option>)}
+      </select>
+    </label>
+
+    <!-- Honeypot: hidden from people; bots that fill it are ignored. -->
+    <div class="absolute -left-[9999px]" aria-hidden="true">
+      <label>
+        Company URL
+        <input
+          type="text"
+          name="company_url"
+          tabindex="-1"
+          autocomplete="off"
+        />
+      </label>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-4 sm:col-span-2">
+      <button type="submit" class="btn btn-primary">Request an invite</button>
+      <p class="text-xs text-ink-muted">
+        We’ll only use your email to send your invite.
+      </p>
+    </div>
+    <p
+      data-invite-error
+      role="alert"
+      class="hidden text-sm font-medium sm:col-span-2"
+    >
+    </p>
+  </form>
+
+  <div data-invite-done hidden tabindex="-1" class="focus:outline-none">
+    <p class="text-2xl font-semibold tracking-tight">You’re on the list.</p>
+    <p class="mt-2 text-ink-muted">
+      We’re letting people in a few at a time. Watch your inbox for an invite.
+    </p>
+  </div>
+</div>
+
+<script>
+  const MESSAGES: Record<string, string> = {
+    invalid_email: 'Please enter a valid email address.',
+    invalid_website: 'That website doesn’t look like a valid URL.',
+    invalid_role: 'Please choose a role from the list.',
+  }
+  const FALLBACK = 'Something went wrong. Please try again in a moment.'
+
+  /** Show an error from a no-JS round trip (`/invite?error=…`), if any. */
+  const initialError = new URLSearchParams(location.search).get('error')
+
+  for (const root of document.querySelectorAll<HTMLElement>('[data-invite]')) {
+    const form = root.querySelector('form')!
+    const error = root.querySelector<HTMLElement>('[data-invite-error]')!
+    const done = root.querySelector<HTMLElement>('[data-invite-done]')!
+    const button = form.querySelector('button')!
+
+    const showError = (message: string) => {
+      error.textContent = message
+      error.classList.remove('hidden')
+    }
+    if (initialError) showError(MESSAGES[initialError] ?? FALLBACK)
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault()
+      error.classList.add('hidden')
+      if (!form.reportValidity()) return
+
+      button.disabled = true
+      button.textContent = 'Sending…'
+      try {
+        const response = await fetch(form.action, {
+          method: 'POST',
+          body: new FormData(form),
+          headers: { Accept: 'application/json' },
+        })
+        const result = (await response.json()) as {
+          ok: boolean
+          error?: string
+        }
+        if (!result.ok) throw new Error(result.error)
+        form.hidden = true
+        done.hidden = false
+        done.focus()
+      } catch (err) {
+        const code = err instanceof Error ? err.message : ''
+        showError(MESSAGES[code] ?? FALLBACK)
+        button.disabled = false
+        button.textContent = 'Request an invite'
+      }
+    })
+  }
+</script>
