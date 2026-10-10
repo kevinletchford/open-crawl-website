@@ -1,0 +1,70 @@
+---
+/**
+ * A polar maze rendered to inline SVG at build time. Walls are drawn in
+ * `currentColor`, so the maze takes the colour of its band.
+ *
+ * Set `crawl` to tint the corridors by crawl distance (0 = untouched, 1 = the
+ * whole maze), drawn underneath the walls in `--maze-trail` (default: glow).
+ */
+import {
+  cellFloorPath,
+  channelFloorPath,
+  crawl as runCrawl,
+  generateMaze,
+  mazeWallsPath,
+  type MazeOptions,
+} from '@/lib/maze'
+
+interface Props extends MazeOptions {
+  class?: string
+  /** Fraction of the crawl to show, 0–1. */
+  crawl?: number
+  /** Accessible name. Omit for a decorative maze. */
+  label?: string
+}
+
+const { class: className, crawl = 0, label, ...options } = Astro.props
+const maze = generateMaze(options)
+const r = maze.outerRadius
+const viewBox = `${-r} ${-r} ${r * 2} ${r * 2}`
+
+let trail: { d: string; t: number }[] = []
+if (crawl > 0) {
+  const { cellDistance, channelDistance, maxDistance } = runCrawl(maze)
+  const limit = maxDistance * crawl
+  trail = maze.cells
+    .filter((cell) => cellDistance[cell.id] <= limit)
+    .map((cell) => ({
+      d: cellFloorPath(maze, cell),
+      t: cellDistance[cell.id] / maxDistance,
+    }))
+  channelDistance.forEach((distance, i) => {
+    if (distance <= limit) {
+      trail.push({
+        d: channelFloorPath(maze, Math.floor(i / maze.rings), i % maze.rings),
+        t: distance / maxDistance,
+      })
+    }
+  })
+}
+---
+
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox={viewBox}
+  class={className}
+  role={label ? 'img' : undefined}
+  aria-label={label}
+  aria-hidden={label ? undefined : 'true'}
+>
+  {
+    trail.length > 0 && (
+      <g style="fill: var(--maze-trail, var(--color-glow-400, #5ee6e0))">
+        {trail.map((floor) => (
+          <path d={floor.d} fill-opacity={1 - floor.t * 0.75} />
+        ))}
+      </g>
+    )
+  }
+  <path d={mazeWallsPath(maze)} fill="currentColor"></path>
+</svg>
