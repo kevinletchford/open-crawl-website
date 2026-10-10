@@ -15,6 +15,10 @@ interface Props {
   rings?: number
   cells?: number
   ratio?: number
+  /** Zoom in by this many rings; the outer ones overflow the frame. */
+  zoom?: number
+  /** Half the width of the view, where 1 is the outermost drawn ring's edge. */
+  frame?: number
   /** Light corridors within this many crawl steps of the entrances. */
   crawl?: number
   class?: string
@@ -27,15 +31,21 @@ const {
   rings = 26,
   cells,
   ratio,
+  zoom = 0,
+  frame,
   crawl = 0,
   class: className,
   label,
 } = Astro.props
 
 const maze = new InfiniteMaze({ seed, cells, ratio })
-const { walls, floors } = infiniteMazePaths(maze, rings)
-// Outer wall's outer edge: radius 1 plus half a wall.
-const r = 1 + (maze.wall * (1 - maze.ratio)) / 2
+// By default, frame the outer wall's outer edge: 1 plus half a wall.
+const r = frame ?? 1 + (maze.wall * (1 - maze.ratio)) / 2
+// Rings beyond the frame's corners can be left out.
+const { walls, floors } = infiniteMazePaths(maze, rings, {
+  zoom,
+  view: r * Math.SQRT2,
+})
 const lit =
   crawl > 0 ? floors.filter((f) => f.distance >= 0 && f.distance <= crawl) : []
 ---
