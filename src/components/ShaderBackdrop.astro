@@ -17,7 +17,7 @@ interface Props {
   class?: string
 }
 
-const { seed, rings = 6, class: className } = Astro.props
+const { seed, rings = 26, class: className } = Astro.props
 const maze = new InfiniteMaze({ seed })
 const { walls } = infiniteMazePaths(maze, rings)
 const mask = corridorMaskUri(walls, 1 + (maze.wall * (1 - maze.ratio)) / 2)
