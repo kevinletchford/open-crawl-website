@@ -21,7 +21,7 @@ export interface MazeOptions {
   eye?: number
   /** Wall thickness as a fraction of the ring width. */
   wall?: number
-  /** Cut an open cross channel on the cardinal axes, like the reference. */
+  /** Split into quadrants by an open cross channel on the cardinal axes. */
   cross?: boolean
   /** Target corridor length per cell, in ring widths. Larger = longer runs. */
   cellLength?: number
@@ -88,7 +88,7 @@ export function generateMaze(options: MazeOptions): PolarMaze {
     rings = 5,
     eye = 1,
     wall = 0.55,
-    cross = true,
+    cross = false,
     cellLength = 1.6,
     bias = 0.7,
   } = options
