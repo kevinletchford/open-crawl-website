@@ -1,7 +1,7 @@
 ---
 /**
  * The first rings of an infinite maze (src/lib/maze/infinite.ts), rendered to
- * inline SVG at build time: one continuous maze of rings around an open centre, like
+ * inline SVG at build time: one continuous maze of rings shrinking to a vanishing point, like
  * the reference maze. Walls are drawn in `currentColor`.
  *
  * `crawl` lights corridors reached within that many crawl steps, in
@@ -24,7 +24,7 @@ interface Props {
 
 const {
   seed,
-  rings = 5,
+  rings = 26,
   cells,
   ratio,
   crawl = 0,
