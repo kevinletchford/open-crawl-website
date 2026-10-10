@@ -1,11 +1,12 @@
 /**
- * The home-page hero: one infinite, connected circular maze.
+ * The home-page hero: one infinite, connected circular maze, drawn flat like
+ * the reference maze — a few rings of thick walls around an eye.
  *
  * The maze (src/lib/maze/infinite.ts) is self-similar: every ring is a scaled
  * copy of the proportions of the ring outside it, so zooming in by one ring
- * looks exactly like where you started. The camera zooms toward the vanishing
- * point forever. New rings are generated at the centre as they come into
- * view, and rings that grow past the frame are disposed, so memory stays flat.
+ * looks exactly like where you started. The view zooms in forever: new,
+ * randomly carved rings fade in out of the eye as they come into view, and
+ * rings that grow past the frame are disposed, so memory stays flat.
  *
  * A crawl floods the corridors from the entrances — the same BFS distances
  * the maze generator records — and its frontier is kept a few rings inside
@@ -21,7 +22,6 @@ import {
   BufferGeometry,
   Color,
   DoubleSide,
-  ExtrudeGeometry,
   Group,
   Mesh,
   Path,
@@ -29,6 +29,7 @@ import {
   Scene,
   ShaderMaterial,
   Shape,
+  ShapeGeometry,
   Vector2,
   WebGLRenderer,
 } from 'three'
@@ -42,18 +43,16 @@ export interface HeroMazeOptions {
 }
 
 /** Rings zoomed through per second. */
-const RINGS_PER_SECOND = 0.42
+const RINGS_PER_SECOND = 0.3
 const FOV = 35
 /** Canvas size relative to the maze's resting size (see the CSS overscan). */
 const OVERSCAN = 1.5
-/** Wall height as a fraction of the ring width. */
-const WALL_HEIGHT = 0.55
-const TILT = -0.36
-/** On-screen scales (1 = resting size) at which rings fade in and out. */
-const FADE_IN = [0.012, 0.05]
+/** Rings shown around the eye at rest; the next one fades in from it. */
+export const VISIBLE_RINGS = 5
+/** On-screen scales (1 = resting size) at which rings fade out. */
 const FADE_OUT = [1.7, 2.6]
 /** How many rings inside the frame edge the crawl frontier sits. */
-export const FRONTIER_RING = 3.2
+export const FRONTIER_RING = 2
 
 interface LiveRing {
   index: number
@@ -87,7 +86,6 @@ export function startHeroMaze(
   camera.position.z = OVERSCAN / Math.tan(((FOV / 2) * Math.PI) / 180)
 
   const world = new Group()
-  world.rotation.x = TILT
   scene.add(world)
 
   // Colours come from CSS custom properties on the canvas, so the palette
@@ -97,16 +95,22 @@ export function startHeroMaze(
     new Color(css.getPropertyValue(name).trim() || fallback)
 
   const maze = new InfiniteMaze({ seed: options.seed })
+  // A ring fades in as it grows out of the eye, from where the next ring
+  // would start to the size of the innermost ring at rest.
+  const fadeIn = [
+    maze.ratio ** VISIBLE_RINGS,
+    maze.ratio ** (VISIBLE_RINGS - 1),
+  ]
 
-  // Three materials shared by every ring; each fades by its mesh's scale.
+  // Two materials shared by every ring; each fades by its mesh's scale.
   const fade: FadeUniforms = {
-    uFadeIn: { value: FADE_IN },
+    uFadeIn: { value: fadeIn },
     uFadeOut: { value: FADE_OUT },
   }
-  const wallTop = wallMaterial(cssColor('--hero-wall', '#f2f2f2'), fade)
-  const wallSide = wallMaterial(cssColor('--hero-wall-side', '#5c5c5c'), fade)
+  const wallColor = wallMaterial(cssColor('--hero-wall', '#f2f2f2'), fade)
   const floorMaterial = new ShaderMaterial({
     transparent: true,
+    depthTest: false,
     depthWrite: false,
     blending: AdditiveBlending,
     // Maze angles run clockwise, which flips the triangles' winding.
@@ -121,6 +125,14 @@ export function startHeroMaze(
     fragmentShader: FLOOR_FRAGMENT,
   })
 
+  // The eye stays put at the centre while the rings stream out of it.
+  const eye = new Mesh(
+    new ShapeGeometry(sectorShape(maze.eye(VISIBLE_RINGS)), 1),
+    wallColor,
+  )
+  eye.renderOrder = 1
+  world.add(eye)
+
   const rings: LiveRing[] = []
   /** Zoom position, in rings: ring k is at scale ratio^(k - zoom). */
   let zoom = 0
@@ -128,7 +140,7 @@ export function startHeroMaze(
   const scaleOf = (index: number) => maze.ratio ** (index - zoom)
   const addRing = () => {
     const ring = maze.next()
-    const mesh = buildRing(ring, maze, wallTop, wallSide, floorMaterial)
+    const mesh = buildRing(ring, maze, wallColor, floorMaterial)
     world.add(mesh)
     rings.push({
       index: ring.index,
@@ -149,7 +161,7 @@ export function startHeroMaze(
     }
     while (
       !rings.length ||
-      scaleOf(rings[rings.length - 1].index) > FADE_IN[0]
+      scaleOf(rings[rings.length - 1].index) > fadeIn[0]
     ) {
       addRing()
     }
@@ -179,15 +191,6 @@ export function startHeroMaze(
   resizeObserver.observe(canvas)
   resize()
 
-  // --- pointer parallax ---------------------------------------------------
-
-  const target = { x: 0, y: 0 }
-  const onPointer = (event: PointerEvent) => {
-    target.x = (event.clientX / window.innerWidth - 0.5) * 2
-    target.y = (event.clientY / window.innerHeight - 0.5) * 2
-  }
-  window.addEventListener('pointermove', onPointer, { passive: true })
-
   // --- loop ---------------------------------------------------------------
 
   let running = false
@@ -212,8 +215,6 @@ export function startHeroMaze(
     progress.value += Math.max(0, goal - progress.value) * Math.min(1, dt * 1.5)
     floorMaterial.uniforms.uTime.value = elapsed
 
-    world.rotation.x += (TILT + target.y * 0.07 - world.rotation.x) * 0.04
-    world.rotation.y += (target.x * 0.09 - world.rotation.y) * 0.04
     world.rotation.z = -elapsed * 0.02
 
     renderer.render(scene, camera)
@@ -252,10 +253,9 @@ export function startHeroMaze(
       intersection.disconnect()
       resizeObserver.disconnect()
       document.removeEventListener('visibilitychange', sync)
-      window.removeEventListener('pointermove', onPointer)
       rings.forEach((ring) => ring.dispose())
-      wallTop.dispose()
-      wallSide.dispose()
+      eye.geometry.dispose()
+      wallColor.dispose()
       floorMaterial.dispose()
       renderer.dispose()
     },
@@ -305,18 +305,18 @@ function sectorShape({ r0, r1, a0, a1 }: Sector): Shape {
 function buildRing(
   ring: InfiniteRing,
   maze: InfiniteMaze,
-  wallTop: ShaderMaterial,
-  wallSide: ShaderMaterial,
+  wallColor: ShaderMaterial,
   floorMaterial: ShaderMaterial,
 ) {
   const group = new Group()
 
-  const walls = new ExtrudeGeometry(ring.walls.map(sectorShape), {
-    depth: WALL_HEIGHT * (1 - maze.ratio),
-    bevelEnabled: false,
-    curveSegments: 1,
-  })
-  group.add(new Mesh(walls, [wallTop, wallSide]))
+  // Flat walls, drawn over the floors.
+  const walls = new Mesh(
+    new ShapeGeometry(ring.walls.map(sectorShape), 1),
+    wallColor,
+  )
+  walls.renderOrder = 1
+  group.add(walls)
 
   // Corridor floors, each vertex tagged with its cell's crawl distance.
   const positions: number[] = []
@@ -367,6 +367,8 @@ const FADE = /* glsl */ `
 function wallMaterial(color: Color, fade: FadeUniforms) {
   return new ShaderMaterial({
     transparent: true,
+    depthTest: false,
+    side: DoubleSide,
     uniforms: { ...fade, uColor: { value: color } },
     vertexShader: /* glsl */ `
       ${FADE}
@@ -415,7 +417,7 @@ const FLOOR_FRAGMENT = /* glsl */ `
     float frontier = exp(-pow(behind * 0.35, 2.0));
     float angle = atan(vPos.x, vPos.y) / 6.2831853;
     float shimmer = 0.5 + 0.5 * sin((vDist * 0.08 + angle * 2.0 - uTime * 0.15) * 6.2831853);
-    float glow = (0.10 + 0.08 * shimmer) + 0.55 * frontier;
+    float glow = (0.03 + 0.02 * shimmer) + 0.14 * frontier;
     gl_FragColor = vec4(uTrail * glow * vFade, 1.0);
   }
 `

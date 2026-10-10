@@ -1,7 +1,7 @@
 ---
 /**
- * The home-page hero visual: one infinite, connected maze zooming toward its
- * vanishing point in WebGL (src/scripts/hero-maze.ts), over a build-time SVG
+ * The home-page hero visual: one infinite, connected, flat maze zooming in
+ * forever toward its eye in WebGL (src/scripts/hero-maze.ts), over a build-time SVG
  * poster of the same maze at the same crawl progress.
  *
  * The poster is what renders first, and what stays for visitors without
@@ -10,7 +10,7 @@
  */
 import InfiniteMazeSvg from '@/components/InfiniteMazeSvg.astro'
 import { InfiniteMaze } from '@/lib/maze'
-import { FRONTIER_RING, ringFrontier } from '@/scripts/hero-maze'
+import { FRONTIER_RING, VISIBLE_RINGS, ringFrontier } from '@/scripts/hero-maze'
 
 const seed = 2026
 
@@ -33,10 +33,10 @@ const crawl =
 >
   <InfiniteMazeSvg
     seed={seed}
-    rings={22}
+    rings={VISIBLE_RINGS}
     crawl={crawl}
     class="size-full text-white transition-opacity duration-1000"
-    label="An endless circular maze spiralling inward, partly lit up by a crawl"
+    label="A circular maze of thick rings around an eye, partly lit up by a crawl"
   />
   <canvas
     class="pointer-events-none absolute -inset-1/4 size-[150%] opacity-0 transition-opacity duration-1000"
@@ -44,10 +44,13 @@ const crawl =
 </div>
 
 <style>
+  .hero-maze {
+    /* Matches the faint crawl trail in hero-maze.ts. */
+    --maze-trail-opacity: 0.05;
+  }
   .hero-maze canvas {
     /* WebGL can't read oklch(), so the hero palette is given in hex. */
     --hero-wall: #f2f2f2;
-    --hero-wall-side: #525252;
     --hero-trail: #ffffff;
     /* The canvas overscans the maze so walls can zoom past the column;
        fade the overscan out at the edges. */
