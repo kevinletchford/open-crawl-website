@@ -1,0 +1,62 @@
+---
+/**
+ * A dark band's backdrop: a large maze whose corridors glow with slowly
+ * drifting gradient light (src/scripts/shader-backdrop.ts). The walls are
+ * also drawn faintly, so the maze reads even before — or without — WebGL.
+ *
+ * Use in a `Section`'s `backdrop` slot; position it with `class`.
+ */
+import { corridorMaskUri, generateMaze } from '@/lib/maze'
+import MazeSvg from '@/components/MazeSvg.astro'
+
+interface Props {
+  seed: number
+  rings?: number
+  /** Positions the (square) maze inside the band. */
+  class?: string
+}
+
+const { seed, rings = 9, class: className } = Astro.props
+const mask = corridorMaskUri(generateMaze({ seed, rings }))
+---
+
+<div
+  class:list={[
+    'shader-backdrop pointer-events-none absolute -z-10 aspect-square',
+    className,
+  ]}
+  aria-hidden="true"
+>
+  <canvas
+    data-shader-backdrop
+    class="absolute inset-0 size-full"
+    style={`--maze-mask: ${mask}`}></canvas>
+  <MazeSvg
+    seed={seed}
+    rings={rings}
+    class="absolute inset-0 size-full text-white/[0.05]"
+  />
+</div>
+
+<style>
+  .shader-backdrop canvas {
+    /* WebGL can't read oklch(), so these are the glow and brand-500 tokens. */
+    --backdrop-a: #00e9e0;
+    --backdrop-b: #6e6dff;
+    /* Corridors only, fading out towards the maze's edge. */
+    mask-image:
+      var(--maze-mask), radial-gradient(closest-side, #000 35%, transparent);
+    mask-size: 100% 100%;
+    mask-composite: intersect;
+    opacity: 0;
+    transition: opacity 1.2s;
+  }
+  .shader-backdrop canvas:global(.is-live) {
+    opacity: 0.4;
+  }
+</style>
+
+<script>
+  import { initShaderBackdrops } from '@/scripts/shader-backdrop'
+  initShaderBackdrops()
+</script>

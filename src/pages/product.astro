@@ -2,6 +2,7 @@
 import InviteCTA from '@/components/InviteCTA.astro'
 import MazeSvg from '@/components/MazeSvg.astro'
 import Section from '@/components/Section.astro'
+import ShaderBackdrop from '@/components/ShaderBackdrop.astro'
 import BaseLayout from '@/layouts/BaseLayout.astro'
 
 // Illustrative data for the mock panels below — labelled as such on the page.
@@ -194,6 +195,12 @@ const lifecycle = [
 
   <!-- Render diff -->
   <Section tone="dark">
+    <ShaderBackdrop
+      slot="backdrop"
+      seed={2}
+      rings={10}
+      class="-right-1/4 -bottom-1/2 w-[56rem]"
+    />
     <div class="max-w-2xl">
       <p class="eyebrow">Render diff</p>
       <h2 class="mt-3 text-3xl font-semibold tracking-tight text-balance">

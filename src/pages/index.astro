@@ -1,7 +1,9 @@
 ---
 import InviteCTA from '@/components/InviteCTA.astro'
+import MazeRace from '@/components/MazeRace.astro'
 import MazeSvg from '@/components/MazeSvg.astro'
 import Section from '@/components/Section.astro'
+import ShaderBackdrop from '@/components/ShaderBackdrop.astro'
 import { SITE_DESCRIPTION } from '@/consts'
 import { SYNTHETIC } from '@/data/benchmarks'
 import BaseLayout from '@/layouts/BaseLayout.astro'
@@ -173,6 +175,12 @@ const rps = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 })
 
   <!-- Features -->
   <Section tone="dark">
+    <ShaderBackdrop
+      slot="backdrop"
+      seed={100}
+      rings={10}
+      class="-top-1/3 -left-1/3 w-[60rem] opacity-80"
+    />
     <div class="max-w-2xl">
       <p class="eyebrow">The platform</p>
       <h2 class="mt-3 text-4xl font-semibold tracking-tight text-balance">
@@ -240,26 +248,7 @@ const rps = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 })
         <a href="/benchmarks" class="btn btn-ghost mt-8">See the benchmarks →</a
         >
       </div>
-      <dl class="space-y-5">
-        {
-          SYNTHETIC.results.map((result) => (
-            <div>
-              <div class="flex justify-between text-sm">
-                <dt class="font-medium">{result.runtime}</dt>
-                <dd class="font-mono text-ink-muted">
-                  {rps.format(result.rps)} req/s
-                </dd>
-              </div>
-              <div class="mt-2 h-2 overflow-hidden rounded-full bg-line">
-                <div
-                  class="h-full rounded-full bg-ink"
-                  style={`width: ${(result.rps / fastest) * 100}%`}
-                />
-              </div>
-            </div>
-          ))
-        }
-      </dl>
+      <MazeRace run={SYNTHETIC} />
     </div>
   </Section>
 
