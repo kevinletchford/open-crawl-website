@@ -86,18 +86,24 @@ export function channelFloorPath(maze: PolarMaze, arm: number, ring: number) {
 }
 
 /**
- * The first `rings` rings of an infinite maze, as one walls path and the corridor floors, in units where the
- * outermost ring's outer edge is 1.
+ * The first `rings` rings of an infinite maze, as one walls path and the
+ * corridor floors, in units where the outermost ring's outer edge is 1.
+ *
+ * `zoom` zooms in by that many rings, so ring `zoom` has its outer edge at 1
+ * and the rings outside it are larger; rings lying wholly outside `view`
+ * (a radius) are left out.
  */
 export function infiniteMazePaths(
   maze: InfiniteMaze,
   rings: number,
+  { zoom = 0, view = Infinity }: { zoom?: number; view?: number } = {},
 ): { walls: string; floors: { d: string; distance: number }[] } {
   let walls = ''
   const floors: { d: string; distance: number }[] = []
   for (let k = 0; k < rings; k++) {
     const ring = maze.next()
-    const scale = maze.ratio ** k
+    const scale = maze.ratio ** (k - zoom)
+    if (scale * maze.ratio > view) continue
     for (const w of ring.walls) {
       walls += sectorPath(w.r0 * scale, w.r1 * scale, w.a0, w.a1)
     }
