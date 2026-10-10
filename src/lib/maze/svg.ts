@@ -116,3 +116,17 @@ export function infiniteMazePaths(
   }
   return { walls, floors }
 }
+
+/**
+ * A standalone SVG, as a data URI, that is opaque in the maze's corridors and
+ * transparent on its walls and outside it — for CSS `mask-image`, so whatever
+ * is masked shows through the corridors only.
+ */
+export function corridorMaskUri(walls: string, radius: number) {
+  const r = n(radius)
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-r} ${-r} ${r * 2} ${r * 2}">` +
+    `<mask id="m"><circle r="${r}" fill="#fff"/><path d="${walls}" fill="#000"/></mask>` +
+    `<circle r="${r}" fill="#000" mask="url(#m)"/></svg>`
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`
+}

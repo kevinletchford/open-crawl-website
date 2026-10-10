@@ -1,0 +1,65 @@
+---
+/**
+ * A dark band's backdrop: an infinite maze whose corridors glow with slowly
+ * drifting light (src/scripts/shader-backdrop.ts). The walls are also drawn
+ * faintly, so the maze reads even before — or without — WebGL.
+ *
+ * Use in a `Section`'s `backdrop` slot; position it with `class`.
+ */
+import InfiniteMazeSvg from '@/components/InfiniteMazeSvg.astro'
+import { InfiniteMaze, corridorMaskUri, infiniteMazePaths } from '@/lib/maze'
+
+interface Props {
+  seed: number
+  /** Rings to draw. */
+  rings?: number
+  /** Positions the (square) maze inside the band. */
+  class?: string
+}
+
+const { seed, rings = 26, class: className } = Astro.props
+const maze = new InfiniteMaze({ seed })
+const { walls } = infiniteMazePaths(maze, rings)
+const mask = corridorMaskUri(walls, 1 + (maze.wall * (1 - maze.ratio)) / 2)
+---
+
+<div
+  class:list={[
+    'shader-backdrop pointer-events-none absolute -z-10 aspect-square',
+    className,
+  ]}
+  aria-hidden="true"
+>
+  <canvas
+    data-shader-backdrop
+    class="absolute inset-0 size-full"
+    style={`--maze-mask: ${mask}`}></canvas>
+  <InfiniteMazeSvg
+    seed={seed}
+    rings={rings}
+    class="absolute inset-0 size-full text-white/[0.05]"
+  />
+</div>
+
+<style>
+  .shader-backdrop canvas {
+    /* Monochrome light; WebGL reads these as hex. */
+    --backdrop-a: #ffffff;
+    --backdrop-b: #8a8a8a;
+    /* Corridors only, fading out towards the maze's edge. */
+    mask-image:
+      var(--maze-mask), radial-gradient(closest-side, #000 35%, transparent);
+    mask-size: 100% 100%;
+    mask-composite: intersect;
+    opacity: 0;
+    transition: opacity 1.2s;
+  }
+  .shader-backdrop canvas:global(.is-live) {
+    opacity: 0.22;
+  }
+</style>
+
+<script>
+  import { initShaderBackdrops } from '@/scripts/shader-backdrop'
+  initShaderBackdrops()
+</script>

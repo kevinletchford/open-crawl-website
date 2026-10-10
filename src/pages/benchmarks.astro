@@ -1,7 +1,8 @@
 ---
 import InviteCTA from '@/components/InviteCTA.astro'
-import InfiniteMazeSvg from '@/components/InfiniteMazeSvg.astro'
+import MazeRace from '@/components/MazeRace.astro'
 import Section from '@/components/Section.astro'
+import ShaderBackdrop from '@/components/ShaderBackdrop.astro'
 import { RUNS } from '@/data/benchmarks'
 import BaseLayout from '@/layouts/BaseLayout.astro'
 
@@ -33,10 +34,10 @@ const method = [
   description="How fast the OpenCrawl engine crawls, in Go, Rust and TypeScript — against a synthetic site and the live web."
 >
   <Section tone="dark" innerClass="pt-20 pb-20 sm:pt-28">
-    <InfiniteMazeSvg
+    <ShaderBackdrop
       slot="backdrop"
       seed={33450}
-      class="pointer-events-none absolute -top-1/4 -right-1/4 -z-10 w-[48rem] max-w-none text-white/[0.06]"
+      class="-top-1/4 -right-1/4 w-[48rem]"
     />
     <h1
       class="max-w-3xl text-5xl font-semibold tracking-tight text-balance sm:text-6xl"
@@ -89,6 +90,11 @@ const method = [
               </dl>
             </div>
             <div class="rounded-card border border-line bg-surface p-6 sm:p-8">
+              <MazeRace
+                run={run}
+                seed={i + 7}
+                class="mb-10 border-b border-line pb-8"
+              />
               <dl class="space-y-6">
                 {run.results.map((result) => (
                   <div>

@@ -2,6 +2,7 @@
 import InfiniteMazeSvg from '@/components/InfiniteMazeSvg.astro'
 import InviteCTA from '@/components/InviteCTA.astro'
 import Section from '@/components/Section.astro'
+import ShaderBackdrop from '@/components/ShaderBackdrop.astro'
 import BaseLayout from '@/layouts/BaseLayout.astro'
 
 // Illustrative data for the mock panels below — labelled as such on the page.
@@ -189,6 +190,11 @@ const lifecycle = [
 
   <!-- Render diff -->
   <Section tone="dark">
+    <ShaderBackdrop
+      slot="backdrop"
+      seed={2}
+      class="-right-1/4 -bottom-1/2 w-[56rem]"
+    />
     <div class="max-w-2xl">
       <h2 class="text-3xl font-semibold tracking-tight text-balance">
         What your visitors see vs. what the crawler gets.
