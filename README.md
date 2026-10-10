@@ -2,7 +2,7 @@
 
 Marketing website for **Open-Crawl** — [open-crawl.com](https://open-crawl.com)
 
-Astro (static) · Tailwind CSS v4 · ESLint + Prettier · Lefthook · Cloudflare Workers
+Astro (static) · Tailwind CSS v4 · ESLint + Prettier · Lefthook · Cloudflare Workers + D1
 
 ## Requirements
 
@@ -27,17 +27,19 @@ inheriting the host's macOS ones.
 
 ## Scripts
 
-| Command             | Does                                         |
-| ------------------- | -------------------------------------------- |
-| `pnpm dev`          | Dev server on :4321                          |
-| `pnpm build`        | Static build to `./dist`                     |
-| `pnpm preview`      | Serve the built output                       |
-| `pnpm lint`         | ESLint, including a11y rules on Astro markup |
-| `pnpm lint:fix`     | ESLint with autofix                          |
-| `pnpm format`       | Prettier write                               |
-| `pnpm format:check` | Prettier check (what CI runs)                |
-| `pnpm check`        | `astro check` — type-checks `.astro` files   |
-| `pnpm deploy`       | Build and deploy to Cloudflare Workers       |
+| Command                 | Does                                         |
+| ----------------------- | -------------------------------------------- |
+| `pnpm dev`              | Dev server on :4321                          |
+| `pnpm build`            | Static build to `./dist`                     |
+| `pnpm preview`          | Serve the built output                       |
+| `pnpm lint`             | ESLint, including a11y rules on Astro markup |
+| `pnpm lint:fix`         | ESLint with autofix                          |
+| `pnpm format`           | Prettier write                               |
+| `pnpm format:check`     | Prettier check (what CI runs)                |
+| `pnpm check`            | `astro check`, then type-checks the Worker   |
+| `pnpm deploy`           | Build and deploy to Cloudflare Workers       |
+| `pnpm dev:worker`       | Build, then run site + Worker on :8787       |
+| `pnpm db:migrate:local` | Apply D1 migrations to the local database    |
 
 ## Quality gates
 
@@ -63,11 +65,48 @@ Pushes to `main` that pass CI deploy automatically via
 
 Two repository secrets are required:
 
-- `CLOUDFLARE_API_TOKEN` — needs _Workers Scripts: Edit_ and _Account
-  Settings: Read_
+- `CLOUDFLARE_API_TOKEN` — needs _Workers Scripts: Edit_, _D1: Edit_ and
+  _Account Settings: Read_
 - `CLOUDFLARE_ACCOUNT_ID`
 
-The Worker serves `./dist` as static assets (`wrangler.jsonc`); there is no
-server runtime. The first deploy lands on a `workers.dev` subdomain — binding
+The Worker serves `./dist` as static assets (`wrangler.jsonc`). The only
+server code is `worker/index.ts`, which handles `/api/*` (see below); every
+other request is served from the edge without invoking it. The first deploy lands on a `workers.dev` subdomain — binding
 `open-crawl.com` to the Worker is a one-off Custom Domain setup in the
 Cloudflare dashboard.
+
+## Invite requests (Worker + D1)
+
+OpenCrawl is invite-only. The "Request an invite" form posts to
+`/api/invite`, handled by `worker/index.ts`, which validates the request and
+stores it in the `invites` table of the `open-crawl-invites` D1 database.
+Repeat requests for the same email are ignored. The schema lives in
+`migrations/`, and CI applies new migrations before each deploy.
+
+The form works without JavaScript: a plain POST gets a `303` to
+`/invite/thanks` (or back to `/invite?error=…`). Send `Accept:
+application/json` to get `{ "ok": true }` / `{ "ok": false, "error": "…" }`
+instead.
+
+**One-time setup:** create the database and put its id in `wrangler.jsonc`:
+
+```bash
+pnpm exec wrangler d1 create open-crawl-invites
+```
+
+**Local testing:** `astro dev` doesn't run the Worker, so use:
+
+```bash
+pnpm db:migrate:local
+pnpm dev:worker                 # http://localhost:8787
+curl -X POST -d email=you@example.com localhost:8787/api/invite
+```
+
+**Reading requests:**
+
+```bash
+pnpm exec wrangler d1 execute open-crawl-invites --remote \
+  --command "SELECT email, name, company, website, role, created_at FROM invites ORDER BY created_at DESC"
+```
+
+Drop `--remote` to read the local database instead.

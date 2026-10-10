@@ -3,12 +3,26 @@
   "name": "open-crawl-website",
   "compatibility_date": "2026-08-26",
 
-  // Static-assets-only Worker: no "main", no compatibility_flags, no server
-  // entrypoint. Astro builds to ./dist and Cloudflare serves it from the edge.
+  // Astro builds the site to ./dist and Cloudflare serves it from the edge.
+  // The Worker in ./worker only runs for /api/* (the invite form); every
+  // other request is answered by static assets without invoking it.
+  "main": "worker/index.ts",
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
     "not_found_handling": "404-page",
+    "run_worker_first": ["/api/*"],
   },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "open-crawl-invites",
+      // Replace with the id printed by `wrangler d1 create open-crawl-invites`.
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations",
+    },
+  ],
 
   "observability": {
     "enabled": true,

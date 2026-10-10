@@ -13,12 +13,15 @@
     "start": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "check": "astro check",
+    "check": "astro check && pnpm run check:worker",
+    "check:worker": "wrangler types worker/worker-configuration.d.ts >/dev/null && tsc -p worker",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "deploy": "astro build && wrangler deploy",
+    "dev:worker": "astro build && wrangler dev",
+    "db:migrate:local": "wrangler d1 migrations apply open-crawl-invites --local",
     "prepare": "lefthook install || true"
   },
   "dependencies": {
