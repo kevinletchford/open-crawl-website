@@ -1,0 +1,49 @@
+---
+/**
+ * A full-bleed page band. Pages are built by stacking these, alternating
+ * `light` and `dark` tones; the inner container sets the reading width.
+ */
+interface Props {
+  tone?: 'light' | 'alt' | 'dark'
+  width?: 'narrow' | 'default' | 'wide'
+  id?: string
+  class?: string
+  /** Classes for the inner container rather than the full-bleed band. */
+  innerClass?: string
+}
+
+const {
+  tone = 'light',
+  width = 'default',
+  id,
+  class: className,
+  innerClass,
+} = Astro.props
+
+const widths = {
+  narrow: 'max-w-3xl',
+  default: 'max-w-6xl',
+  wide: 'max-w-7xl',
+}
+---
+
+<section
+  id={id}
+  class:list={[
+    'relative isolate overflow-hidden',
+    tone === 'dark' && 'band-dark',
+    tone === 'alt' && 'bg-surface-alt',
+    className,
+  ]}
+>
+  <slot name="backdrop" />
+  <div
+    class:list={[
+      'relative mx-auto px-4 py-20 sm:px-6 sm:py-28',
+      widths[width],
+      innerClass,
+    ]}
+  >
+    <slot />
+  </div>
+</section>

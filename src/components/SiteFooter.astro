@@ -1,0 +1,52 @@
+---
+import Logo from '@/components/Logo.astro'
+import { GITHUB_URL, NAV, SITE_TITLE } from '@/consts'
+
+const year = new Date().getFullYear()
+
+const columns = [
+  { heading: 'Product', links: NAV },
+  {
+    heading: 'Open source',
+    links: [
+      { href: GITHUB_URL, label: 'GitHub' },
+      { href: '/Light.svg', label: 'Logo (light)' },
+      { href: '/Dark.svg', label: 'Logo (dark)' },
+    ],
+  },
+]
+---
+
+<footer class="band-dark">
+  <div
+    class="mx-auto grid max-w-6xl gap-12 px-4 py-16 sm:px-6 md:grid-cols-[1fr_auto_auto] md:gap-20"
+  >
+    <div class="max-w-xs">
+      <Logo class="h-8 w-auto" label={SITE_TITLE} />
+      <p class="mt-4 text-sm text-ink-muted">
+        Find your way through every page the way AI crawlers do.
+      </p>
+    </div>
+    {
+      columns.map((col) => (
+        <div>
+          <h2 class="text-sm font-medium">{col.heading}</h2>
+          <ul class="mt-4 space-y-3 text-sm text-ink-muted">
+            {col.links.map((link) => (
+              <li>
+                <a class="transition-colors hover:text-white" href={link.href}>
+                  {link.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))
+    }
+  </div>
+  <div class="border-t border-line">
+    <div class="mx-auto max-w-6xl px-4 py-6 text-sm text-ink-muted sm:px-6">
+      &copy; {`${year} ${SITE_TITLE}`}
+    </div>
+  </div>
+</footer>

@@ -9,9 +9,15 @@
 
 export const SITE_URL = 'https://open-crawl.com'
 
-export const SITE_TITLE = 'Open-Crawl'
+export const SITE_TITLE = 'OpenCrawl'
 
-export const SITE_DESCRIPTION = 'Open-Crawl — open source web crawling.'
+export const SITE_DESCRIPTION =
+  'OpenCrawl crawls your site the way AI crawlers and answer engines do, and shows you what they can and can’t see.'
 
 /** Twitter/X handle used for `twitter:site` card attribution. */
 export const SITE_TWITTER = '@opencrawl'
+
+export const GITHUB_URL = 'https://github.com/kevinletchford/open-crawl'
+
+/** Primary navigation, shared by the header and footer. */
+export const NAV = [{ href: '/blog', label: 'Blog' }]

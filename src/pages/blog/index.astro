@@ -1,5 +1,6 @@
 ---
 import { getCollection } from 'astro:content'
+import Section from '@/components/Section.astro'
 import BaseLayout from '@/layouts/BaseLayout.astro'
 
 const posts = (await getCollection('blog', ({ data }) => !data.draft)).sort(
@@ -13,31 +14,31 @@ const dateFormat = new Intl.DateTimeFormat('en-GB', {
 })
 ---
 
-<BaseLayout title="Blog" description="Writing from the Open-Crawl team.">
-  <h1 class="text-4xl font-bold tracking-tight">Blog</h1>
+<BaseLayout title="Blog" description="Writing from the OpenCrawl team.">
+  <Section width="narrow">
+    <h1 class="text-5xl font-semibold tracking-tight">Notes from the maze</h1>
 
-  <ul class="mt-10 space-y-8">
-    {
-      posts.map((post) => (
-        <li>
-          <article>
-            <h2 class="text-xl font-semibold">
-              <a class="hover:text-brand-600" href={`/blog/${post.id}/`}>
-                {post.data.title}
-              </a>
-            </h2>
-            <time
-              class="mt-1 block text-sm text-[color:var(--color-ink-muted)]"
-              datetime={post.data.pubDate.toISOString()}
-            >
-              {dateFormat.format(post.data.pubDate)}
-            </time>
-            <p class="mt-2 text-[color:var(--color-ink-muted)]">
-              {post.data.description}
-            </p>
-          </article>
-        </li>
-      ))
-    }
-  </ul>
+    <ul class="mt-10 space-y-8">
+      {
+        posts.map((post) => (
+          <li>
+            <article>
+              <h2 class="text-xl font-semibold">
+                <a class="hover:text-ink-muted" href={`/blog/${post.id}/`}>
+                  {post.data.title}
+                </a>
+              </h2>
+              <time
+                class="mt-1 block text-sm text-ink-muted"
+                datetime={post.data.pubDate.toISOString()}
+              >
+                {dateFormat.format(post.data.pubDate)}
+              </time>
+              <p class="mt-2 text-ink-muted">{post.data.description}</p>
+            </article>
+          </li>
+        ))
+      }
+    </ul>
+  </Section>
 </BaseLayout>
