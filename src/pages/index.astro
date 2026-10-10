@@ -1,4 +1,5 @@
 ---
+import HeroMaze from '@/components/HeroMaze.astro'
 import InviteCTA from '@/components/InviteCTA.astro'
 import MazeSvg from '@/components/MazeSvg.astro'
 import Section from '@/components/Section.astro'
@@ -92,7 +93,8 @@ const rps = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 })
     >
     </div>
     <div class="grid items-center gap-12 lg:grid-cols-[1.05fr_1fr]">
-      <div>
+      <!-- Above the hero canvas, which overscans its column. -->
+      <div class="relative z-10">
         <p class="eyebrow">AI visibility, mapped</p>
         <h1
           class="mt-4 text-5xl font-semibold tracking-tight text-balance sm:text-7xl"
@@ -107,18 +109,7 @@ const rps = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 })
           <a href="#how-it-works" class="btn btn-ghost">How it works</a>
         </div>
       </div>
-      <div
-        data-hero-maze
-        class="relative mx-auto aspect-square w-full max-w-xl"
-      >
-        <MazeSvg
-          seed={2026}
-          rings={7}
-          crawl={0.55}
-          class="size-full text-white"
-          label="A circular maze, partly lit up by a crawl spreading in from its four entrances"
-        />
-      </div>
+      <HeroMaze />
     </div>
   </Section>
 

@@ -1,0 +1,98 @@
+---
+/**
+ * The home-page hero visual: an infinite, zooming circular maze in WebGL
+ * (src/scripts/hero-maze.ts), over a build-time SVG poster of the same maze.
+ *
+ * The poster is what renders first, and what stays for visitors without
+ * JavaScript or WebGL, or who prefer reduced motion. Three.js is only
+ * downloaded when the animation will actually run.
+ */
+import MazeSvg from '@/components/MazeSvg.astro'
+
+const seed = 2026
+const rings = 6
+const eye = 2
+---
+
+<div
+  class="hero-maze relative mx-auto mt-10 aspect-square w-full max-w-xl lg:mt-0"
+  data-hero-maze
+  data-seed={seed}
+  data-rings={rings}
+  data-eye={eye}
+>
+  <MazeSvg
+    seed={seed}
+    rings={rings}
+    eye={eye}
+    crawl={0.33}
+    class="size-full text-white transition-opacity duration-1000"
+    label="A circular maze, partly lit up by a crawl spreading in from its four entrances"
+  />
+  <canvas
+    class="pointer-events-none absolute -inset-1/4 size-[150%] opacity-0 transition-opacity duration-1000"
+    aria-hidden="true"></canvas>
+</div>
+
+<style>
+  .hero-maze canvas {
+    /* WebGL can't read oklch(), so the hero palette is given in hex. */
+    --hero-bg: #07070a;
+    --hero-wall: #f4f4f7;
+    --hero-wall-side: #4b4b66;
+    --hero-trail-a: #00e9e0;
+    --hero-trail-b: #6e6dff;
+    /* The canvas overscans the maze so walls can zoom past the column;
+       fade the overscan out at the edges. */
+    mask-image: radial-gradient(closest-side, #000 62%, transparent);
+  }
+</style>
+
+<script>
+  const root = document.querySelector<HTMLElement>('[data-hero-maze]')
+  const canvas = root?.querySelector('canvas')
+  const poster = root?.querySelector('svg')
+  const motion = window.matchMedia('(prefers-reduced-motion: reduce)')
+
+  const supportsWebGL = () => {
+    try {
+      return !!document.createElement('canvas').getContext('webgl2')
+    } catch {
+      return false
+    }
+  }
+
+  let stop: (() => void) | undefined
+
+  async function start() {
+    if (!root || !canvas || !poster || stop) return
+    const { startHeroMaze } = await import('@/scripts/hero-maze')
+    if (motion.matches) return
+    const hero = startHeroMaze(
+      canvas,
+      {
+        seed: Number(root.dataset.seed),
+        rings: Number(root.dataset.rings),
+        eye: Number(root.dataset.eye),
+      },
+      () => {
+        canvas.style.opacity = '1'
+        poster.style.opacity = '0'
+      },
+    )
+    stop = () => {
+      hero.destroy()
+      canvas.style.opacity = '0'
+      poster.style.opacity = '1'
+      stop = undefined
+    }
+  }
+
+  if (supportsWebGL()) {
+    // Let the page (and its poster) paint before fetching three.js.
+    const idle = window.requestIdleCallback ?? ((cb) => setTimeout(cb, 200))
+    const maybeStart = () => (motion.matches ? stop?.() : idle(() => start()))
+    motion.addEventListener('change', maybeStart)
+    maybeStart()
+  }
+</script>
