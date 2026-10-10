@@ -1,0 +1,316 @@
+---
+import InviteCTA from '@/components/InviteCTA.astro'
+import MazeSvg from '@/components/MazeSvg.astro'
+import Section from '@/components/Section.astro'
+import BaseLayout from '@/layouts/BaseLayout.astro'
+
+// Illustrative data for the mock panels below — labelled as such on the page.
+const agents = ['GPTBot', 'ClaudeBot', 'PerplexityBot', 'Google-Extended']
+const access: { path: string; allowed: ('yes' | 'no' | 'partial')[] }[] = [
+  { path: '/', allowed: ['yes', 'yes', 'yes', 'yes'] },
+  { path: '/pricing', allowed: ['yes', 'yes', 'partial', 'yes'] },
+  { path: '/docs/*', allowed: ['no', 'yes', 'yes', 'no'] },
+  { path: '/blog/*', allowed: ['yes', 'partial', 'yes', 'yes'] },
+  { path: '/app/*', allowed: ['no', 'no', 'no', 'no'] },
+]
+const accessLabel = { yes: 'Allowed', no: 'Blocked', partial: 'Partial' }
+
+const score = [
+  { label: 'Access', value: 92 },
+  { label: 'Rendering', value: 54 },
+  { label: 'Structure', value: 78 },
+  { label: 'Quotability', value: 61 },
+]
+const overall = Math.round(
+  score.reduce((sum, s) => sum + s.value, 0) / score.length,
+)
+
+const lifecycle = [
+  { hook: 'preAudit', body: 'Read and adjust the audit configuration.' },
+  { hook: 'preCapture', body: 'Run just before a node is fetched.' },
+  { hook: 'render', body: 'Configure how each node is rendered.' },
+  { hook: 'postCapture', body: 'Enrich, score or export what was captured.' },
+]
+---
+
+<BaseLayout
+  title="Product"
+  description="Crawl as every AI agent, score every page for AI readability, and see exactly what answer engines can and can’t reach."
+>
+  <Section innerClass="pt-20 pb-16 sm:pt-28 sm:pb-20">
+    <div class="grid items-center gap-12 lg:grid-cols-[1.3fr_1fr]">
+      <div>
+        <p class="eyebrow">Product</p>
+        <h1
+          class="mt-4 text-5xl font-semibold tracking-tight text-balance sm:text-6xl"
+        >
+          Every path an AI agent can take through your site.
+        </h1>
+        <p class="mt-6 max-w-xl text-lg text-ink-muted">
+          OpenCrawl is a fast, open crawl engine with an AI-visibility audit on
+          top. It walks your site the way each agent does, then shows you where
+          they get stuck.
+        </p>
+        <a href="/invite" class="btn btn-primary mt-10">Request an invite</a>
+      </div>
+      <MazeSvg
+        seed={7}
+        rings={5}
+        crawl={0.35}
+        class="mx-auto hidden w-full max-w-sm text-ink lg:block"
+      />
+    </div>
+  </Section>
+
+  <!-- Agent access -->
+  <Section tone="alt">
+    <div class="grid items-center gap-12 lg:grid-cols-2">
+      <div>
+        <p class="eyebrow">Agent access audit</p>
+        <h2 class="mt-3 text-3xl font-semibold tracking-tight text-balance">
+          Know who’s allowed in, page by page.
+        </h2>
+        <p class="mt-4 text-ink-muted">
+          robots.txt groups, llms.txt, meta robots, X-Robots-Tag headers and
+          firewall responses all decide what an agent can read. OpenCrawl
+          resolves them together for every agent and every URL, so a rule that
+          blocks one bot and not another is impossible to miss.
+        </p>
+      </div>
+      <figure
+        class="overflow-hidden rounded-card border border-line bg-surface shadow-sm"
+      >
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead class="border-b border-line text-xs text-ink-muted">
+              <tr>
+                <th class="px-4 py-3 font-medium">Path</th>
+                {
+                  agents.map((agent) => (
+                    <th class="px-3 py-3 font-mono font-medium">{agent}</th>
+                  ))
+                }
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-line">
+              {
+                access.map((row) => (
+                  <tr>
+                    <td class="px-4 py-3 font-mono text-xs">{row.path}</td>
+                    {row.allowed.map((state) => (
+                      <td class="px-3 py-3">
+                        <span
+                          class:list={[
+                            'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs',
+                            state === 'yes' &&
+                              'bg-emerald-500/10 text-emerald-700',
+                            state === 'no' && 'bg-red-500/10 text-red-700',
+                            state === 'partial' &&
+                              'bg-amber-500/10 text-amber-700',
+                          ]}
+                        >
+                          {accessLabel[state]}
+                        </span>
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              }
+            </tbody>
+          </table>
+        </div>
+        <figcaption
+          class="border-t border-line px-4 py-2 text-xs text-ink-muted"
+        >
+          Illustrative example
+        </figcaption>
+      </figure>
+    </div>
+  </Section>
+
+  <!-- Score -->
+  <Section>
+    <div class="grid items-center gap-12 lg:grid-cols-2">
+      <figure
+        class="order-last rounded-card border border-line bg-surface p-6 shadow-sm sm:p-8 lg:order-first"
+      >
+        <div class="flex items-center gap-6">
+          <div
+            class="relative grid size-28 shrink-0 place-items-center rounded-full"
+            style={`background: conic-gradient(var(--color-brand-600) ${overall * 3.6}deg, var(--color-line) 0)`}
+          >
+            <div
+              class="grid size-22 place-items-center rounded-full bg-surface"
+            >
+              <span class="text-3xl font-semibold tracking-tight"
+                >{overall}</span
+              >
+            </div>
+          </div>
+          <div>
+            <p class="font-mono text-xs text-ink-muted">/pricing</p>
+            <p class="mt-1 font-semibold">AI readability score</p>
+            <p class="mt-1 text-sm text-ink-muted">
+              Top fix: server-render the plan comparison table.
+            </p>
+          </div>
+        </div>
+        <dl class="mt-8 space-y-4">
+          {
+            score.map((item) => (
+              <div>
+                <div class="flex justify-between text-sm">
+                  <dt>{item.label}</dt>
+                  <dd class="font-mono text-ink-muted">{item.value}</dd>
+                </div>
+                <div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-line">
+                  <div
+                    class="h-full rounded-full bg-brand-600"
+                    style={`width: ${item.value}%`}
+                  />
+                </div>
+              </div>
+            ))
+          }
+        </dl>
+        <figcaption class="mt-6 text-xs text-ink-muted">
+          Illustrative example
+        </figcaption>
+      </figure>
+      <div>
+        <p class="eyebrow">AI readability score</p>
+        <h2 class="mt-3 text-3xl font-semibold tracking-tight text-balance">
+          One number per page, and the reasons behind it.
+        </h2>
+        <p class="mt-4 text-ink-muted">
+          Each page is scored on whether agents can reach it, whether its
+          content survives without JavaScript, whether it’s structured clearly,
+          and whether it says things plainly enough to be quoted. Fixes are
+          ranked by how many pages and agents they unblock.
+        </p>
+      </div>
+    </div>
+  </Section>
+
+  <!-- Render diff -->
+  <Section tone="dark">
+    <div class="max-w-2xl">
+      <p class="eyebrow">Render diff</p>
+      <h2 class="mt-3 text-3xl font-semibold tracking-tight text-balance">
+        What your visitors see vs. what the crawler gets.
+      </h2>
+      <p class="mt-4 text-ink-muted">
+        Most AI crawlers fetch raw HTML and never run your scripts. OpenCrawl
+        captures both versions of every page and highlights what disappears.
+      </p>
+    </div>
+    <div class="mt-12 grid gap-4 md:grid-cols-2">
+      <figure class="rounded-card border border-line bg-night-alt p-6">
+        <figcaption class="text-xs text-ink-muted">
+          Browser (JavaScript on)
+        </figcaption>
+        <div class="mt-5 space-y-3" aria-hidden="true">
+          <div class="h-5 w-2/3 rounded bg-white/80"></div>
+          <div class="h-3 w-full rounded bg-white/25"></div>
+          <div class="h-3 w-5/6 rounded bg-white/25"></div>
+          <div class="grid grid-cols-3 gap-2 pt-3">
+            <div class="h-16 rounded bg-glow-400/60"></div>
+            <div class="h-16 rounded bg-glow-400/60"></div>
+            <div class="h-16 rounded bg-glow-400/60"></div>
+          </div>
+          <div class="h-3 w-3/4 rounded bg-white/25"></div>
+        </div>
+      </figure>
+      <figure class="rounded-card border border-line bg-night-alt p-6">
+        <figcaption class="text-xs text-ink-muted">
+          <span class="font-mono">GPTBot</span> (raw HTML)
+        </figcaption>
+        <div class="mt-5 space-y-3" aria-hidden="true">
+          <div class="h-5 w-2/3 rounded bg-white/80"></div>
+          <div class="h-3 w-full rounded bg-white/25"></div>
+          <div class="h-3 w-5/6 rounded bg-white/25"></div>
+          <div class="grid grid-cols-3 gap-2 pt-3">
+            <div class="h-16 rounded border border-dashed border-red-400/60">
+            </div>
+            <div class="h-16 rounded border border-dashed border-red-400/60">
+            </div>
+            <div class="h-16 rounded border border-dashed border-red-400/60">
+            </div>
+          </div>
+          <div class="h-3 w-3/4 rounded bg-white/25"></div>
+        </div>
+        <p class="mt-5 text-xs text-red-300">
+          3 content blocks missing without JavaScript
+        </p>
+      </figure>
+    </div>
+  </Section>
+
+  <!-- Plugins + MCP -->
+  <Section>
+    <div class="grid gap-16 lg:grid-cols-2">
+      <div>
+        <p class="eyebrow">Plugins</p>
+        <h2 class="mt-3 text-3xl font-semibold tracking-tight text-balance">
+          Hook into every step of the crawl.
+        </h2>
+        <p class="mt-4 text-ink-muted">
+          The engine exposes four lifecycle hooks, so you can add your own
+          checks, change how pages are rendered, or send results anywhere.
+        </p>
+        <ol
+          class="mt-8 space-y-px overflow-hidden rounded-card border border-line"
+        >
+          {
+            lifecycle.map((step, i) => (
+              <li class="flex gap-4 bg-surface-alt px-5 py-4">
+                <span class="font-mono text-sm text-ink-muted">{i + 1}</span>
+                <div>
+                  <p class="font-mono text-sm font-medium">{step.hook}</p>
+                  <p class="mt-0.5 text-sm text-ink-muted">{step.body}</p>
+                </div>
+              </li>
+            ))
+          }
+        </ol>
+      </div>
+      <div>
+        <p class="eyebrow">MCP server</p>
+        <h2 class="mt-3 text-3xl font-semibold tracking-tight text-balance">
+          Let your agents read the map.
+        </h2>
+        <p class="mt-4 text-ink-muted">
+          OpenCrawl ships an MCP server, so the AI tools your team already uses
+          can ask questions about any crawl directly.
+        </p>
+        <figure
+          class="band-dark mt-8 overflow-hidden rounded-card border border-line font-mono text-sm"
+        >
+          <figcaption
+            class="border-b border-line px-5 py-3 text-xs text-ink-muted"
+          >
+            Illustrative session
+          </figcaption>
+          <div class="space-y-4 p-5 leading-relaxed">
+            <p>
+              <span class="text-ink-muted">you ›</span> Which product pages can’t
+              ClaudeBot read?
+            </p>
+            <p class="text-ink-muted">
+              → <span class="text-glow-400">crawl.query</span>
+              {'{'} agent: "ClaudeBot", path: "/products/*", readable: false {
+                '}'
+              }
+            </p>
+            <p>
+              <span class="text-ink-muted">agent ›</span> 14 pages. All 14 load their
+              specs client-side; the raw HTML has no product details.
+            </p>
+          </div>
+        </figure>
+      </div>
+    </div>
+  </Section>
+
+  <InviteCTA />
+</BaseLayout>

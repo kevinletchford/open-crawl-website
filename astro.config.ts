@@ -9,7 +9,8 @@ export default defineConfig({
   site: SITE_URL,
   integrations: [
     mdx(),
-    sitemap({ filter: (page) => !new URL(page).pathname.startsWith('/dev/') }),
+    // The thank-you page is only reached by submitting the invite form.
+    sitemap({ filter: (page) => !page.includes('/invite/thanks') }),
   ],
   vite: {
     plugins: [tailwindcss()],

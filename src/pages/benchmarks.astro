@@ -1,0 +1,132 @@
+---
+import InviteCTA from '@/components/InviteCTA.astro'
+import MazeSvg from '@/components/MazeSvg.astro'
+import Section from '@/components/Section.astro'
+import { RUNS } from '@/data/benchmarks'
+import BaseLayout from '@/layouts/BaseLayout.astro'
+
+const number = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 2 })
+const dateFormat = new Intl.DateTimeFormat('en-GB', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+})
+
+const method = [
+  {
+    title: 'Same crawler, three runtimes',
+    body: 'The crawl engine is implemented in Go, Rust and TypeScript, and each one runs the same crawl back to back.',
+  },
+  {
+    title: 'Same-domain, breadth-first',
+    body: 'Each crawler starts from one URL, follows redirects, and stays on the starting domain until it runs out of links.',
+  },
+  {
+    title: 'Two targets',
+    body: 'A synthetic local site measures the crawler on its own. A live website measures it against the real network.',
+  },
+]
+---
+
+<BaseLayout
+  title="Benchmarks"
+  description="How fast the OpenCrawl engine crawls, in Go, Rust and TypeScript — against a synthetic site and the live web."
+>
+  <Section tone="dark" innerClass="pt-20 pb-20 sm:pt-28">
+    <MazeSvg
+      slot="backdrop"
+      seed={33450}
+      rings={10}
+      class="pointer-events-none absolute -top-1/4 -right-1/4 -z-10 w-[48rem] max-w-none text-white/[0.06]"
+    />
+    <p class="eyebrow">Benchmarks</p>
+    <h1
+      class="mt-4 max-w-3xl text-5xl font-semibold tracking-tight text-balance sm:text-6xl"
+    >
+      How fast can you get through the maze?
+    </h1>
+    <p class="mt-6 max-w-2xl text-lg text-ink-muted">
+      The OpenCrawl engine is benchmarked across three runtimes by its own
+      harness. These are the published results, unedited.
+    </p>
+  </Section>
+
+  <Section innerClass="py-16 sm:py-20">
+    <div class="grid gap-10 md:grid-cols-3">
+      {
+        method.map((item) => (
+          <div>
+            <h2 class="font-semibold">{item.title}</h2>
+            <p class="mt-2 text-sm text-ink-muted">{item.body}</p>
+          </div>
+        ))
+      }
+    </div>
+  </Section>
+
+  {
+    RUNS.map((run, i) => {
+      const fastest = Math.max(...run.results.map((r) => r.rps))
+      return (
+        <Section tone={i % 2 === 0 ? 'alt' : 'light'} id={run.id}>
+          <div class="grid gap-12 lg:grid-cols-[1fr_1.4fr]">
+            <div>
+              <h2 class="text-3xl font-semibold tracking-tight">{run.title}</h2>
+              <p class="mt-4 text-ink-muted">{run.summary}</p>
+              <dl class="mt-8 grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                <div>
+                  <dt class="text-ink-muted">Date</dt>
+                  <dd class="mt-0.5 font-medium">
+                    {dateFormat.format(new Date(run.date))}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-ink-muted">Passes</dt>
+                  <dd class="mt-0.5 font-medium">{run.passes}</dd>
+                </div>
+                <div class="col-span-2">
+                  <dt class="text-ink-muted">Target</dt>
+                  <dd class="mt-0.5 font-medium">{run.target}</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="rounded-card border border-line bg-surface p-6 sm:p-8">
+              <dl class="space-y-6">
+                {run.results.map((result) => (
+                  <div>
+                    <div class="flex items-baseline justify-between gap-4">
+                      <dt class="font-medium">{result.runtime}</dt>
+                      <dd class="text-right">
+                        <span class="text-2xl font-semibold tracking-tight">
+                          {number.format(result.rps)}
+                        </span>
+                        <span class="text-sm text-ink-muted"> req/s</span>
+                      </dd>
+                    </div>
+                    <div class="mt-2 h-2.5 overflow-hidden rounded-full bg-line">
+                      <div
+                        class:list={[
+                          'h-full rounded-full',
+                          result.rps === fastest ? 'bg-brand-600' : 'bg-ink',
+                        ]}
+                        style={`width: ${(result.rps / fastest) * 100}%`}
+                      />
+                    </div>
+                    <p class="mt-1.5 text-xs text-ink-muted">
+                      Completed in {result.time}
+                    </p>
+                  </div>
+                ))}
+              </dl>
+              <p class="mt-8 border-t border-line pt-4 font-mono text-xs text-ink-muted">
+                Source: {run.report}
+              </p>
+            </div>
+          </div>
+        </Section>
+      )
+    })
+  }
+
+  <InviteCTA heading="Want this engine on your site?" />
+</BaseLayout>

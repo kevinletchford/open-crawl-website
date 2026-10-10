@@ -1,0 +1,53 @@
+---
+import InviteForm from '@/components/InviteForm.astro'
+import MazeSvg from '@/components/MazeSvg.astro'
+import Section from '@/components/Section.astro'
+import BaseLayout from '@/layouts/BaseLayout.astro'
+
+const perks = [
+  'A full AI-visibility audit of your site',
+  'Crawls as every major AI agent',
+  'Direct access to the team building it',
+]
+---
+
+<BaseLayout
+  title="Request an invite"
+  description="OpenCrawl is invite-only. Request early access to see your site the way AI sees it."
+>
+  <Section innerClass="pt-16 pb-24 sm:pt-24">
+    <div class="grid gap-14 lg:grid-cols-[1fr_1.1fr] lg:gap-20">
+      <div>
+        <p class="eyebrow">Early access</p>
+        <h1
+          class="mt-4 text-5xl font-semibold tracking-tight text-balance sm:text-6xl"
+        >
+          Request an invite.
+        </h1>
+        <p class="mt-6 max-w-md text-lg text-ink-muted">
+          OpenCrawl is invite-only while we onboard teams in small batches. Tell
+          us about your site and we’ll be in touch.
+        </p>
+        <ul class="mt-10 space-y-4">
+          {
+            perks.map((perk, i) => (
+              <li class="flex items-center gap-3">
+                <MazeSvg
+                  seed={300 + i}
+                  rings={2}
+                  cellLength={2.2}
+                  crawl={1}
+                  class="size-7 shrink-0 text-ink"
+                />
+                {perk}
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+      <div class="rounded-card border border-line p-6 shadow-sm sm:p-8">
+        <InviteForm />
+      </div>
+    </div>
+  </Section>
+</BaseLayout>
