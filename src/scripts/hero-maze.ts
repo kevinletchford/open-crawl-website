@@ -1,11 +1,11 @@
 /**
  * The home-page hero: one infinite, connected circular maze, drawn flat like
- * the reference maze — a few rings of thick walls around an eye.
+ * the reference maze — a few rings of thick walls.
  *
  * The maze (src/lib/maze/infinite.ts) is self-similar: every ring is a scaled
  * copy of the proportions of the ring outside it, so zooming in by one ring
  * looks exactly like where you started. The view zooms in forever: new,
- * randomly carved rings fade in out of the eye as they come into view, and
+ * randomly carved rings fade in at the centre as they come into view, and
  * rings that grow past the frame are disposed, so memory stays flat.
  *
  * A crawl floods the corridors from the entrances — the same BFS distances
@@ -47,7 +47,7 @@ const RINGS_PER_SECOND = 0.3
 const FOV = 35
 /** Canvas size relative to the maze's resting size (see the CSS overscan). */
 const OVERSCAN = 1.5
-/** Rings shown around the eye at rest; the next one fades in from it. */
+/** Rings shown at rest; the next one fades in at the centre. */
 export const VISIBLE_RINGS = 5
 /** On-screen scales (1 = resting size) at which rings fade out. */
 const FADE_OUT = [1.7, 2.6]
@@ -95,7 +95,7 @@ export function startHeroMaze(
     new Color(css.getPropertyValue(name).trim() || fallback)
 
   const maze = new InfiniteMaze({ seed: options.seed })
-  // A ring fades in as it grows out of the eye, from where the next ring
+  // A ring fades in as it grows out of the centre, from where the next ring
   // would start to the size of the innermost ring at rest.
   const fadeIn = [
     maze.ratio ** VISIBLE_RINGS,
@@ -124,14 +124,6 @@ export function startHeroMaze(
     vertexShader: FLOOR_VERTEX,
     fragmentShader: FLOOR_FRAGMENT,
   })
-
-  // The eye stays put at the centre while the rings stream out of it.
-  const eye = new Mesh(
-    new ShapeGeometry(sectorShape(maze.eye(VISIBLE_RINGS)), 1),
-    wallColor,
-  )
-  eye.renderOrder = 1
-  world.add(eye)
 
   const rings: LiveRing[] = []
   /** Zoom position, in rings: ring k is at scale ratio^(k - zoom). */
@@ -254,7 +246,6 @@ export function startHeroMaze(
       resizeObserver.disconnect()
       document.removeEventListener('visibilitychange', sync)
       rings.forEach((ring) => ring.dispose())
-      eye.geometry.dispose()
       wallColor.dispose()
       floorMaterial.dispose()
       renderer.dispose()
