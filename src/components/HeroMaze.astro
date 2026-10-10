@@ -1,33 +1,42 @@
 ---
 /**
- * The home-page hero visual: an infinite, zooming circular maze in WebGL
- * (src/scripts/hero-maze.ts), over a build-time SVG poster of the same maze.
+ * The home-page hero visual: one infinite, connected maze zooming toward its
+ * vanishing point in WebGL (src/scripts/hero-maze.ts), over a build-time SVG
+ * poster of the same maze at the same crawl progress.
  *
  * The poster is what renders first, and what stays for visitors without
  * JavaScript or WebGL, or who prefer reduced motion. Three.js is only
  * downloaded when the animation will actually run.
  */
-import MazeSvg from '@/components/MazeSvg.astro'
+import InfiniteMazeSvg from '@/components/InfiniteMazeSvg.astro'
+import { InfiniteMaze } from '@/lib/maze'
+import { FRONTIER_RING, ringFrontier } from '@/scripts/hero-maze'
 
 const seed = 2026
-const rings = 6
-const eye = 2
+
+// Where the animation's crawl frontier starts: the same rule the script uses,
+// so the poster and the first WebGL frame match.
+const probe = new InfiniteMaze({ seed })
+const frontiers = Array.from({ length: Math.ceil(FRONTIER_RING) + 1 }, () =>
+  ringFrontier(probe.next()),
+)
+const lo = Math.floor(FRONTIER_RING)
+const crawl =
+  frontiers[lo] + (frontiers[lo + 1] - frontiers[lo]) * (FRONTIER_RING - lo)
 ---
 
 <div
   class="hero-maze relative mx-auto mt-10 aspect-square w-full max-w-xl lg:mt-0"
   data-hero-maze
   data-seed={seed}
-  data-rings={rings}
-  data-eye={eye}
+  data-crawl={crawl}
 >
-  <MazeSvg
+  <InfiniteMazeSvg
     seed={seed}
-    rings={rings}
-    eye={eye}
-    crawl={0.33}
+    rings={22}
+    crawl={crawl}
     class="size-full text-white transition-opacity duration-1000"
-    label="A circular maze, partly lit up by a crawl spreading in from its four entrances"
+    label="An endless circular maze spiralling inward, partly lit up by a crawl"
   />
   <canvas
     class="pointer-events-none absolute -inset-1/4 size-[150%] opacity-0 transition-opacity duration-1000"
@@ -37,11 +46,9 @@ const eye = 2
 <style>
   .hero-maze canvas {
     /* WebGL can't read oklch(), so the hero palette is given in hex. */
-    --hero-bg: #07070a;
-    --hero-wall: #f4f4f7;
-    --hero-wall-side: #4b4b66;
-    --hero-trail-a: #00e9e0;
-    --hero-trail-b: #6e6dff;
+    --hero-wall: #f2f2f2;
+    --hero-wall-side: #525252;
+    --hero-trail: #ffffff;
     /* The canvas overscans the maze so walls can zoom past the column;
        fade the overscan out at the edges. */
     mask-image: radial-gradient(closest-side, #000 62%, transparent);
@@ -72,8 +79,7 @@ const eye = 2
       canvas,
       {
         seed: Number(root.dataset.seed),
-        rings: Number(root.dataset.rings),
-        eye: Number(root.dataset.eye),
+        crawl: Number(root.dataset.crawl),
       },
       () => {
         canvas.style.opacity = '1'

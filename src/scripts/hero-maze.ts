@@ -1,19 +1,22 @@
 /**
- * The home-page hero: an infinite circular maze.
+ * The home-page hero: one infinite, connected circular maze.
  *
- * Every maze has another maze inside its eye. The camera zooms steadily into
- * the centre, and while each level is in view a crawl spreads through its
- * corridors from the four entrances to the eye — the BFS frontier from
- * `crawl()`, revealed by a shader as a moving gradient. By the time the crawl
- * reaches the eye, the next maze has filled the frame and its own crawl
- * begins. Levels that grow out of view are disposed and a fresh one is
- * generated in the middle, so the loop never ends and memory stays flat.
+ * The maze (src/lib/maze/infinite.ts) is self-similar: every ring is a scaled
+ * copy of the proportions of the ring outside it, so zooming in by one ring
+ * looks exactly like where you started. The camera zooms toward the vanishing
+ * point forever. New rings are generated at the centre as they come into
+ * view, and rings that grow past the frame are disposed, so memory stays flat.
  *
- * Loaded lazily by the hero component, only when WebGL is available and the
- * visitor hasn't asked for reduced motion. Until the first frame renders, the
- * build-time SVG poster (same seed, same maze) is shown instead.
+ * A crawl floods the corridors from the entrances — the same BFS distances
+ * the maze generator records — and its frontier is kept a few rings inside
+ * the frame, so you follow the crawler down into the maze.
+ *
+ * Loaded lazily by HeroMaze.astro, only with WebGL2 and without reduced
+ * motion. Until the first frame renders, the build-time SVG poster of the
+ * same maze is shown instead.
  */
 import {
+  AdditiveBlending,
   BufferAttribute,
   BufferGeometry,
   Color,
@@ -21,7 +24,6 @@ import {
   ExtrudeGeometry,
   Group,
   Mesh,
-  MeshBasicMaterial,
   Path,
   PerspectiveCamera,
   Scene,
@@ -29,38 +31,41 @@ import {
   Shape,
   Vector2,
   WebGLRenderer,
-  AdditiveBlending,
 } from 'three'
 
-import { crawl, generateMaze, type PolarMaze, type Wall } from '@/lib/maze'
+import { InfiniteMaze, type InfiniteRing, type Sector } from '@/lib/maze'
 
 export interface HeroMazeOptions {
   seed: number
-  rings: number
-  eye: number
+  /** Crawl progress to start from, matching the poster. */
+  crawl: number
 }
 
-/** Seconds to zoom through one level. */
-const LEVEL_SECONDS = 11
-/**
- * Levels alive at once. Slot 1 is the level filling the frame; slot 0 is its
- * parent, fading out as it grows past the edges; slots 2+ wait inside.
- */
-const LEVELS = 4
-/** On-screen scale (1 = resting size) at which a level starts to fade out. */
-const FADE_FROM = 2.4
+/** Rings zoomed through per second. */
+const RINGS_PER_SECOND = 0.42
 const FOV = 35
 /** Canvas size relative to the maze's resting size (see the CSS overscan). */
 const OVERSCAN = 1.5
-const WALL_DEPTH = 0.32
-const TILT = -0.38
+/** Wall height as a fraction of the ring width. */
+const WALL_HEIGHT = 0.55
+const TILT = -0.36
+/** On-screen scales (1 = resting size) at which rings fade in and out. */
+const FADE_IN = [0.012, 0.05]
+const FADE_OUT = [1.7, 2.6]
+/** How many rings inside the frame edge the crawl frontier sits. */
+export const FRONTIER_RING = 3.2
 
-interface Level {
-  group: Group
-  floor: ShaderMaterial
-  /** 0–1: fades walls into the background and dims the trail. */
-  setFade: (fade: number) => void
+interface LiveRing {
+  index: number
+  /** Median crawl distance of the ring's reached cells (for the frontier). */
+  frontier: number
+  mesh: Group
   dispose: () => void
+}
+
+type FadeUniforms = {
+  uFadeIn: { value: number[] }
+  uFadeOut: { value: number[] }
 }
 
 export function startHeroMaze(
@@ -90,86 +95,74 @@ export function startHeroMaze(
   const css = getComputedStyle(canvas)
   const cssColor = (name: string, fallback: string) =>
     new Color(css.getPropertyValue(name).trim() || fallback)
-  const background = cssColor('--hero-bg', '#0b0b10')
-  const wallColor = cssColor('--hero-wall', '#f4f4f6')
-  const sideColor = cssColor('--hero-wall-side', '#5d5d78')
-  const trailA = cssColor('--hero-trail-a', '#3ee0d8')
-  const trailB = cssColor('--hero-trail-b', '#7b5cff')
 
-  // Every level has the same proportions, so each child fits inside its
-  // parent's eye at a fixed ratio.
-  const primary = generateMaze(options)
-  const ratio = (primary.eye - primary.wall / 2) / primary.outerRadius / 1.04
+  const maze = new InfiniteMaze({ seed: options.seed })
 
-  // Slot 1 is the poster's maze (same seed), so the crossfade is seamless.
-  const levels: Level[] = []
-  let nextSeed = options.seed - 1
-  for (let i = 0; i < LEVELS; i++) {
-    const seed = nextSeed++
-    levels.push(
-      buildLevel(i === 1 ? primary : generateMaze({ ...options, seed })),
-    )
+  // Three materials shared by every ring; each fades by its mesh's scale.
+  const fade: FadeUniforms = {
+    uFadeIn: { value: FADE_IN },
+    uFadeOut: { value: FADE_OUT },
   }
-  /** Progress through the current level, 0–1. */
+  const wallTop = wallMaterial(cssColor('--hero-wall', '#f2f2f2'), fade)
+  const wallSide = wallMaterial(cssColor('--hero-wall-side', '#5c5c5c'), fade)
+  const floorMaterial = new ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: AdditiveBlending,
+    // Maze angles run clockwise, which flips the triangles' winding.
+    side: DoubleSide,
+    uniforms: {
+      ...fade,
+      uProgress: { value: options.crawl },
+      uTime: { value: 0 },
+      uTrail: { value: cssColor('--hero-trail', '#ffffff') },
+    },
+    vertexShader: FLOOR_VERTEX,
+    fragmentShader: FLOOR_FRAGMENT,
+  })
+
+  const rings: LiveRing[] = []
+  /** Zoom position, in rings: ring k is at scale ratio^(k - zoom). */
   let zoom = 0
 
-  function buildLevel(maze: PolarMaze): Level {
-    const group = new Group()
-    const wallTop = new MeshBasicMaterial({ color: wallColor.clone() })
-    const wallSide = new MeshBasicMaterial({ color: sideColor.clone() })
-
-    const walls = new ExtrudeGeometry(
-      maze.walls.map((w) => wallShape(w, maze)),
-      {
-        depth: WALL_DEPTH,
-        bevelEnabled: false,
-        curveSegments: 1,
-      },
-    )
-    const wallMesh = new Mesh(walls, [wallTop, wallSide])
-    wallMesh.position.z = 0.002
-    group.add(wallMesh)
-
-    const floorGeometry = floor(maze)
-    const floorMaterial = new ShaderMaterial({
-      transparent: true,
-      depthWrite: false,
-      // Maze angles run clockwise, which flips the triangles' winding.
-      side: DoubleSide,
-      blending: AdditiveBlending,
-      uniforms: {
-        uProgress: { value: 0 },
-        uTime: { value: 0 },
-        uFade: { value: 1 },
-        uA: { value: trailA },
-        uB: { value: trailB },
-      },
-      vertexShader: FLOOR_VERTEX,
-      fragmentShader: FLOOR_FRAGMENT,
-    })
-    group.add(new Mesh(floorGeometry, floorMaterial))
-
-    // Scale so the maze's outer radius is 1 world unit at its resting size.
-    group.userData.unit = 1 / maze.outerRadius
-    world.add(group)
-
-    return {
-      group,
-      floor: floorMaterial,
-      setFade(fade) {
-        wallTop.color.lerpColors(background, wallColor, fade)
-        wallSide.color.lerpColors(background, sideColor, fade)
-        floorMaterial.uniforms.uFade.value = fade
-      },
+  const scaleOf = (index: number) => maze.ratio ** (index - zoom)
+  const addRing = () => {
+    const ring = maze.next()
+    const mesh = buildRing(ring, maze, wallTop, wallSide, floorMaterial)
+    world.add(mesh)
+    rings.push({
+      index: ring.index,
+      frontier: ringFrontier(ring),
+      mesh,
       dispose() {
-        world.remove(group)
-        walls.dispose()
-        wallTop.dispose()
-        wallSide.dispose()
-        floorGeometry.dispose()
-        floorMaterial.dispose()
+        world.remove(mesh)
+        mesh.traverse((child) => {
+          if (child instanceof Mesh) child.geometry.dispose()
+        })
       },
+    })
+  }
+  /** Keep rings from just outside the frame down to the vanishing point. */
+  const syncRings = () => {
+    while (rings.length && scaleOf(rings[0].index) > FADE_OUT[1]) {
+      rings.shift()!.dispose()
     }
+    while (
+      !rings.length ||
+      scaleOf(rings[rings.length - 1].index) > FADE_IN[0]
+    ) {
+      addRing()
+    }
+  }
+  syncRings()
+
+  /** Crawl distance at a fractional ring index, from the ring medians. */
+  const frontierAt = (position: number) => {
+    const i = Math.min(Math.max(position - rings[0].index, 0), rings.length - 1)
+    const lo = Math.floor(i)
+    const hi = Math.min(lo + 1, rings.length - 1)
+    const a = rings[lo].frontier
+    return a + (rings[hi].frontier - a) * (i - lo)
   }
 
   // --- sizing -------------------------------------------------------------
@@ -208,35 +201,20 @@ export function startHeroMaze(
     const dt = last ? Math.min((now - last) / 1000, 0.1) : 0
     last = now
     elapsed += dt
-    zoom += dt / LEVEL_SECONDS
+    zoom += dt * RINGS_PER_SECOND
+    syncRings()
 
-    // The outermost level has grown well past the frame: recycle it.
-    if (zoom >= 1) {
-      zoom -= 1
-      levels.shift()!.dispose()
-      levels.push(buildLevel(generateMaze({ ...options, seed: nextSeed++ })))
-    }
+    for (const ring of rings) ring.mesh.scale.setScalar(scaleOf(ring.index))
 
-    world.rotation.x += (TILT + target.y * 0.08 - world.rotation.x) * 0.04
-    world.rotation.y += (target.x * 0.1 - world.rotation.y) * 0.04
-    world.rotation.z = -elapsed * 0.015
+    // Ease the crawl toward its target; it never runs backwards.
+    const progress = floorMaterial.uniforms.uProgress
+    const goal = frontierAt(zoom + FRONTIER_RING)
+    progress.value += Math.max(0, goal - progress.value) * Math.min(1, dt * 1.5)
+    floorMaterial.uniforms.uTime.value = elapsed
 
-    levels.forEach((level, i) => {
-      // How many levels this one is from filling the frame: 0 = resting size,
-      // -1 = one level further in, +1 = one level past.
-      const step = zoom + 1 - i
-      const scale = ratio ** -step
-      level.group.scale.setScalar(scale * level.group.userData.unit)
-      const fade = clamp01(
-        1 - Math.log(scale / FADE_FROM) / Math.log(1 / ratio / FADE_FROM),
-      )
-      level.group.visible = fade > 0 && scale > 0.004
-      level.setFade(fade)
-      // Each level's crawl starts as it emerges from its parent's eye and
-      // reaches its own eye as it grows past the frame.
-      level.floor.uniforms.uProgress.value = clamp01((step + 0.45) / 1.35)
-      level.floor.uniforms.uTime.value = elapsed
-    })
+    world.rotation.x += (TILT + target.y * 0.07 - world.rotation.x) * 0.04
+    world.rotation.y += (target.x * 0.09 - world.rotation.y) * 0.04
+    world.rotation.z = -elapsed * 0.02
 
     renderer.render(scene, camera)
     if (first) {
@@ -275,105 +253,149 @@ export function startHeroMaze(
       resizeObserver.disconnect()
       document.removeEventListener('visibilitychange', sync)
       window.removeEventListener('pointermove', onPointer)
-      levels.forEach((level) => level.dispose())
+      rings.forEach((ring) => ring.dispose())
+      wallTop.dispose()
+      wallSide.dispose()
+      floorMaterial.dispose()
       renderer.dispose()
     },
   }
 }
 
-const clamp01 = (value: number) => Math.min(1, Math.max(0, value))
+/**
+ * Median crawl distance of a ring's reached cells. The hero keeps the crawl
+ * frontier at the median of the ring `FRONTIER_RING` rings in; the poster
+ * uses the same value so the handover from SVG to WebGL is seamless.
+ */
+export function ringFrontier(ring: InfiniteRing) {
+  const reached = ring.cells
+    .map((cell) => cell.distance)
+    .filter((d) => d >= 0)
+    .sort((a, b) => a - b)
+  return reached.length ? reached[Math.floor(reached.length / 2)] : 0
+}
 
 // --- geometry -------------------------------------------------------------
 //
 // Maze coordinates put angle 0 at 12 o'clock, increasing clockwise. In three
-// (y up), that point is (r sin a, r cos a).
+// (y up), that point is (r sin a, r cos a). Rings are built in ring-local
+// units (outer edge at radius 1) and placed by scaling their mesh.
 
-const point = (r: number, a: number): [number, number] => [
-  r * Math.sin(a),
-  r * Math.cos(a),
-]
+const point = (r: number, a: number) =>
+  new Vector2(r * Math.sin(a), r * Math.cos(a))
 
-/** Points along an arc, with segment count scaled to its on-screen length. */
 function arcPoints(r: number, a0: number, a1: number) {
-  const steps = Math.max(2, Math.ceil(Math.abs(a1 - a0) * Math.max(6, r * 5)))
+  const steps = Math.max(2, Math.ceil(Math.abs(a1 - a0) * 24))
   return Array.from({ length: steps + 1 }, (_, i) =>
     point(r, a0 + ((a1 - a0) * i) / steps),
   )
 }
 
-function wallShape(wall: Wall, maze: PolarMaze): Shape {
-  const shape = new Shape()
-  const half = maze.wall / 2
-  if (wall.kind === 'radial') {
-    const [ux, uy] = point(1, wall.a)
-    const [nx, ny] = [uy * half, -ux * half]
-    shape.moveTo(wall.r0 * ux - nx, wall.r0 * uy - ny)
-    shape.lineTo(wall.r1 * ux - nx, wall.r1 * uy - ny)
-    shape.lineTo(wall.r1 * ux + nx, wall.r1 * uy + ny)
-    shape.lineTo(wall.r0 * ux + nx, wall.r0 * uy + ny)
+function sectorShape({ r0, r1, a0, a1 }: Sector): Shape {
+  const outer = arcPoints(r1, a0, a1)
+  const inner = arcPoints(r0, a0, a1).reverse()
+  if (a1 - a0 >= Math.PI * 2 - 1e-6) {
+    const shape = new Shape(outer)
+    shape.holes.push(new Path(inner))
     return shape
   }
-  const outer = arcPoints(wall.r + half, wall.a0, wall.a1)
-  const inner = arcPoints(wall.r - half, wall.a0, wall.a1)
-  if (wall.a1 - wall.a0 >= Math.PI * 2 - 1e-6) {
-    // A closed ring: the outer circle with the inner one as a hole.
-    shape.setFromPoints(outer.map(([x, y]) => new Vector2(x, y)))
-    const hole = new Path()
-    hole.setFromPoints(inner.reverse().map(([x, y]) => new Vector2(x, y)))
-    shape.holes.push(hole)
-    return shape
-  }
-  const [first, ...rest] = outer
-  shape.moveTo(...first)
-  for (const p of rest) shape.lineTo(...p)
-  for (const p of inner.reverse()) shape.lineTo(...p)
-  return shape
+  return new Shape([...outer, ...inner])
 }
 
-/** Corridor floors as triangles, each vertex tagged with crawl distance. */
-function floor(maze: PolarMaze): BufferGeometry {
-  const { cellDistance, maxDistance } = crawl(maze)
+function buildRing(
+  ring: InfiniteRing,
+  maze: InfiniteMaze,
+  wallTop: ShaderMaterial,
+  wallSide: ShaderMaterial,
+  floorMaterial: ShaderMaterial,
+) {
+  const group = new Group()
+
+  const walls = new ExtrudeGeometry(ring.walls.map(sectorShape), {
+    depth: WALL_HEIGHT * (1 - maze.ratio),
+    bevelEnabled: false,
+    curveSegments: 1,
+  })
+  group.add(new Mesh(walls, [wallTop, wallSide]))
+
+  // Corridor floors, each vertex tagged with its cell's crawl distance.
   const positions: number[] = []
   const distances: number[] = []
-  for (const cell of maze.cells) {
-    const r0 = maze.radius(cell.ring)
-    const r1 = maze.radius(cell.ring + 1)
-    const d = cellDistance[cell.id] / Math.max(1, maxDistance)
-    const outer = arcPoints(r1, cell.a0, cell.a1)
-    const inner = arcPoints(r0, cell.a0, cell.a1)
-    // arcPoints picks its step count from the radius, so resample the inner
-    // edge to match the outer one.
-    const n = outer.length - 1
-    for (let i = 0; i < n; i++) {
-      const ia = inner[Math.round((i / n) * (inner.length - 1))]
-      const ib = inner[Math.round(((i + 1) / n) * (inner.length - 1))]
-      const quad = [ia, outer[i], outer[i + 1], ia, outer[i + 1], ib]
-      for (const [x, y] of quad) {
-        positions.push(x, y, 0)
-        distances.push(d)
+  for (const cell of ring.cells) {
+    const outer = arcPoints(1, cell.a0, cell.a1)
+    const inner = arcPoints(maze.ratio, cell.a0, cell.a1)
+    for (let i = 0; i < outer.length - 1; i++) {
+      for (const p of [
+        inner[i],
+        outer[i],
+        outer[i + 1],
+        inner[i],
+        outer[i + 1],
+        inner[i + 1],
+      ]) {
+        positions.push(p.x, p.y, 0)
+        distances.push(cell.distance)
       }
     }
   }
-  const geometry = new BufferGeometry()
-  geometry.setAttribute(
+  const floor = new BufferGeometry()
+  floor.setAttribute(
     'position',
     new BufferAttribute(new Float32Array(positions), 3),
   )
-  geometry.setAttribute(
+  floor.setAttribute(
     'aDist',
     new BufferAttribute(new Float32Array(distances), 1),
   )
-  return geometry
+  group.add(new Mesh(floor, floorMaterial))
+  return group
 }
 
 // --- shaders --------------------------------------------------------------
 
+/** Shared by walls and floors: 0–1 visibility from the mesh's scale. */
+const FADE = /* glsl */ `
+  uniform vec2 uFadeIn;
+  uniform vec2 uFadeOut;
+  float scaleFade() {
+    float s = length(modelMatrix[0].xyz);
+    return smoothstep(uFadeIn.x, uFadeIn.y, s) *
+      (1.0 - smoothstep(uFadeOut.x, uFadeOut.y, s));
+  }
+`
+
+function wallMaterial(color: Color, fade: FadeUniforms) {
+  return new ShaderMaterial({
+    transparent: true,
+    uniforms: { ...fade, uColor: { value: color } },
+    vertexShader: /* glsl */ `
+      ${FADE}
+      varying float vFade;
+      void main() {
+        vFade = scaleFade();
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform vec3 uColor;
+      varying float vFade;
+      void main() {
+        if (vFade < 0.01) discard;
+        gl_FragColor = vec4(uColor, vFade);
+      }
+    `,
+  })
+}
+
 const FLOOR_VERTEX = /* glsl */ `
+  ${FADE}
   attribute float aDist;
   varying float vDist;
+  varying float vFade;
   varying vec2 vPos;
   void main() {
     vDist = aDist;
+    vFade = scaleFade();
     vPos = position.xy;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
@@ -382,20 +404,18 @@ const FLOOR_VERTEX = /* glsl */ `
 const FLOOR_FRAGMENT = /* glsl */ `
   uniform float uProgress;
   uniform float uTime;
-  uniform vec3 uA;
-  uniform vec3 uB;
-  uniform float uFade;
+  uniform vec3 uTrail;
   varying float vDist;
+  varying float vFade;
   varying vec2 vPos;
   void main() {
-    // Visited corridors stay lit; the frontier glows brightest.
+    // Unreached cells, and cells beyond the frontier, stay dark.
     float behind = uProgress - vDist;
-    if (behind < 0.0) discard;
-    float frontier = exp(-pow(behind * 9.0, 2.0));
+    if (vDist < 0.0 || behind < 0.0) discard;
+    float frontier = exp(-pow(behind * 0.35, 2.0));
     float angle = atan(vPos.x, vPos.y) / 6.2831853;
-    float wave = 0.5 + 0.5 * sin((vDist * 3.0 + angle - uTime * 0.12) * 6.2831853);
-    vec3 color = mix(uA, uB, wave);
-    float glow = 0.42 + 1.1 * frontier;
-    gl_FragColor = vec4(color * glow * uFade, 1.0);
+    float shimmer = 0.5 + 0.5 * sin((vDist * 0.08 + angle * 2.0 - uTime * 0.15) * 6.2831853);
+    float glow = (0.10 + 0.08 * shimmer) + 0.55 * frontier;
+    gl_FragColor = vec4(uTrail * glow * vFade, 1.0);
   }
 `
