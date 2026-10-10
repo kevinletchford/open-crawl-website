@@ -79,11 +79,13 @@ export class InfiniteMaze {
   private arriving: Float64Array
 
   constructor(options: InfiniteMazeOptions) {
-    this.cells = options.cells ?? 28
-    this.ratio = options.ratio ?? 0.82
+    // Defaults follow the reference maze (public/maze.png): a few wide rings
+    // of long arcs, walls as thick as the corridors between them.
+    this.cells = options.cells ?? 24
+    this.ratio = options.ratio ?? 0.78
     this.wall = options.wall ?? 0.5
     this.cross = options.cross ?? true
-    this.horizontal = options.horizontal ?? 0.62
+    this.horizontal = options.horizontal ?? 0.7
     this.vertical = options.vertical ?? 0.18
     this.rng = mulberry32(options.seed)
     if (this.cross && this.cells % 4 !== 0) {
@@ -108,6 +110,19 @@ export class InfiniteMaze {
   private touchesCross(i: number) {
     const n = this.cells
     return this.onCross(i) || this.onCross((i - 1 + n) % n)
+  }
+
+  /**
+   * The "eye" at the centre of a maze drawn down to ring `rings`, as in the
+   * logo: a closed ring wall inside the innermost corridor. In the units of
+   * ring 0 (outer edge at radius 1).
+   */
+  eye(rings: number): Sector {
+    const width = (1 - this.ratio) * this.ratio ** (rings - 1)
+    const inner = this.ratio ** rings - (this.wall * width) / 2
+    const r1 = inner - (1 - this.wall) * width
+    // A thick ring around a small pupil, like the reference.
+    return { r0: r1 * 0.55, r1, a0: 0, a1: TAU }
   }
 
   /** Generate the next ring inward. */
