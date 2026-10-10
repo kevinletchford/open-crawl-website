@@ -5,7 +5,7 @@
  * The maze (src/lib/maze/infinite.ts) is self-similar: every ring is a scaled
  * copy of the proportions of the ring outside it, so zooming in by one ring
  * looks exactly like where you started. The view zooms in forever: new,
- * randomly carved rings fade in at the centre as they come into view, and
+ * randomly carved rings appear at the vanishing point as they come into view, and
  * rings that grow past the frame are disposed, so memory stays flat.
  *
  * A crawl floods the corridors from the entrances — the same BFS distances
@@ -47,8 +47,12 @@ const RINGS_PER_SECOND = 0.3
 const FOV = 35
 /** Canvas size relative to the maze's resting size (see the CSS overscan). */
 const OVERSCAN = 1.5
-/** Rings shown at rest; the next one fades in at the centre. */
-export const VISIBLE_RINGS = 5
+/**
+ * Rings drawn at rest, down to the vanishing point: the innermost are well
+ * under a pixel wide, so new rings appear there unseen and the maze looks
+ * endless.
+ */
+export const VISIBLE_RINGS = 26
 /** On-screen scales (1 = resting size) at which rings fade out. */
 const FADE_OUT = [1.7, 2.6]
 /** How many rings inside the frame edge the crawl frontier sits. */
@@ -95,11 +99,10 @@ export function startHeroMaze(
     new Color(css.getPropertyValue(name).trim() || fallback)
 
   const maze = new InfiniteMaze({ seed: options.seed })
-  // A ring fades in as it grows out of the centre, from where the next ring
-  // would start to the size of the innermost ring at rest.
+  // Rings fade in while still sub-pixel, so the fade is never visible.
   const fadeIn = [
     maze.ratio ** VISIBLE_RINGS,
-    maze.ratio ** (VISIBLE_RINGS - 1),
+    maze.ratio ** (VISIBLE_RINGS - 2),
   ]
 
   // Two materials shared by every ring; each fades by its mesh's scale.
