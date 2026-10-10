@@ -1,0 +1,70 @@
+---
+/**
+ * The first rings of an infinite maze (src/lib/maze/infinite.ts), rendered to
+ * inline SVG at build time: one continuous maze of rings shrinking to a vanishing point, like
+ * the reference maze. Walls are drawn in `currentColor`.
+ *
+ * `crawl` lights corridors reached within that many crawl steps, in
+ * `--maze-trail` (default: the wall colour) at `--maze-trail-opacity`.
+ */
+import { InfiniteMaze, infiniteMazePaths } from '@/lib/maze'
+
+interface Props {
+  seed: number
+  /** How many rings to draw; inner rings are narrower. */
+  rings?: number
+  cells?: number
+  ratio?: number
+  /** Zoom in by this many rings; the outer ones overflow the frame. */
+  zoom?: number
+  /** Half the width of the view, where 1 is the outermost drawn ring's edge. */
+  frame?: number
+  /** Light corridors within this many crawl steps of the entrances. */
+  crawl?: number
+  class?: string
+  /** Accessible name. Omit for a decorative maze. */
+  label?: string
+}
+
+const {
+  seed,
+  rings = 26,
+  cells,
+  ratio,
+  zoom = 0,
+  frame,
+  crawl = 0,
+  class: className,
+  label,
+} = Astro.props
+
+const maze = new InfiniteMaze({ seed, cells, ratio })
+// By default, frame the outer wall's outer edge: 1 plus half a wall.
+const r = frame ?? 1 + (maze.wall * (1 - maze.ratio)) / 2
+// Rings beyond the frame's corners can be left out.
+const { walls, floors } = infiniteMazePaths(maze, rings, {
+  zoom,
+  view: r * Math.SQRT2,
+})
+const lit =
+  crawl > 0 ? floors.filter((f) => f.distance >= 0 && f.distance <= crawl) : []
+---
+
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox={`${-r} ${-r} ${r * 2} ${r * 2}`}
+  class={className}
+  role={label ? 'img' : undefined}
+  aria-label={label}
+  aria-hidden={label ? undefined : 'true'}
+>
+  {
+    lit.length > 0 && (
+      <path
+        d={lit.map((f) => f.d).join('')}
+        style="fill: var(--maze-trail, currentColor); opacity: var(--maze-trail-opacity, 0.08)"
+      />
+    )
+  }
+  <path d={walls} fill="currentColor"></path>
+</svg>
