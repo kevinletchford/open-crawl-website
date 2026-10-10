@@ -6,20 +6,20 @@
  * Tailwind v4 generates utilities directly from these custom properties, so
  * `--color-ink` gives you `text-ink`, `bg-ink`, `border-ink`, etc.
  *
- * The palette is strictly monochrome: neutral greys with no hue. The site
- * alternates light "paper" bands with dark "night" bands; contrast and
- * weight, not colour, carry emphasis.
+ * The palette is strictly monochrome: neutral greys with no hue. The site is
+ * black throughout, with white ink; contrast and weight, not colour, carry
+ * emphasis. The `night` tokens name the dark bands, which now match.
  */
 @theme {
-  --color-ink: oklch(0.16 0 0);
-  --color-ink-muted: oklch(0.5 0 0);
-  --color-line: oklch(0.91 0 0);
-  --color-surface: oklch(1 0 0);
-  --color-surface-alt: oklch(0.975 0 0);
+  --color-ink: oklch(0.97 0 0);
+  --color-ink-muted: oklch(0.68 0 0);
+  --color-line: oklch(1 0 0 / 0.1);
+  --color-surface: oklch(0 0 0);
+  --color-surface-alt: oklch(0.11 0 0);
 
-  --color-night: oklch(0.13 0 0);
-  --color-night-alt: oklch(0.17 0 0);
-  --color-night-line: oklch(1 0 0 / 0.09);
+  --color-night: oklch(0 0 0);
+  --color-night-alt: oklch(0.11 0 0);
+  --color-night-line: oklch(1 0 0 / 0.1);
   --color-night-muted: oklch(0.68 0 0);
   --color-night-ink: oklch(0.97 0 0);
 
@@ -33,6 +33,7 @@
 
 @layer base {
   html {
+    color-scheme: dark;
     scroll-behavior: smooth;
     -webkit-text-size-adjust: 100%;
   }
@@ -91,7 +92,7 @@
   color: var(--color-surface);
 
   &:hover {
-    background-color: oklch(0.32 0 0);
+    background-color: oklch(0.82 0 0);
   }
 
   .band-dark & {
