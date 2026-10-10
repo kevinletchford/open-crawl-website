@@ -38,6 +38,15 @@ jobs:
       - name: Build
         run: pnpm run build
 
+      # Schema first, so the new Worker never runs against an old table.
+      # Migrations that already ran are skipped, so this is a no-op most days.
+      - name: Apply D1 migrations
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: d1 migrations apply open-crawl-invites --remote
+
       - name: Deploy
         uses: cloudflare/wrangler-action@v4
         with:
