@@ -1,6 +1,7 @@
 ---
 import type { GetStaticPaths } from 'astro'
 import { getCollection, render } from 'astro:content'
+import Section from '@/components/Section.astro'
 import BaseLayout from '@/layouts/BaseLayout.astro'
 
 export const getStaticPaths = (async () => {
@@ -28,24 +29,26 @@ const dateFormat = new Intl.DateTimeFormat('en-GB', {
   type="article"
   publishedTime={post.data.pubDate}
 >
-  <article class="mx-auto max-w-2xl">
-    <h1 class="text-4xl font-bold tracking-tight text-balance">
-      {post.data.title}
-    </h1>
-    <time
-      class="mt-2 block text-sm text-[color:var(--color-ink-muted)]"
-      datetime={post.data.pubDate.toISOString()}
-    >
-      {dateFormat.format(post.data.pubDate)}
-      {
-        post.data.updatedDate && (
-          <> · updated {dateFormat.format(post.data.updatedDate)}</>
-        )
-      }
-    </time>
+  <Section width="narrow">
+    <article class="mx-auto max-w-2xl">
+      <h1 class="text-4xl font-semibold tracking-tight text-balance">
+        {post.data.title}
+      </h1>
+      <time
+        class="mt-2 block text-sm text-ink-muted"
+        datetime={post.data.pubDate.toISOString()}
+      >
+        {dateFormat.format(post.data.pubDate)}
+        {
+          post.data.updatedDate && (
+            <> · updated {dateFormat.format(post.data.updatedDate)}</>
+          )
+        }
+      </time>
 
-    <div class="mt-10 space-y-4 leading-relaxed">
-      <Content />
-    </div>
-  </article>
+      <div class="mt-10 space-y-4 leading-relaxed">
+        <Content />
+      </div>
+    </article>
+  </Section>
 </BaseLayout>

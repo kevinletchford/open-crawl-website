@@ -1,30 +1,42 @@
 @import 'tailwindcss';
 
 /*
- * Open-Crawl brand tokens.
+ * OpenCrawl design tokens.
  *
  * Tailwind v4 generates utilities directly from these custom properties, so
- * `--color-brand-500` gives you `bg-brand-500`, `text-brand-500`, etc. These
- * values are a deliberate placeholder scale — swap them for the real brand
- * palette here and every utility across the site updates with them.
+ * `--color-brand-500` gives you `bg-brand-500`, `text-brand-500`, etc.
+ *
+ * The site alternates light "paper" bands with dark "night" bands. Brand is a
+ * single electric violet that holds up on both; `glow` is the crawl-trail
+ * colour used for the maze frontier and highlights on dark bands.
  */
 @theme {
-  --color-brand-50: oklch(0.97 0.02 240);
-  --color-brand-100: oklch(0.94 0.04 240);
-  --color-brand-200: oklch(0.88 0.08 240);
-  --color-brand-300: oklch(0.8 0.12 240);
-  --color-brand-400: oklch(0.71 0.16 245);
-  --color-brand-500: oklch(0.62 0.19 250);
-  --color-brand-600: oklch(0.54 0.19 252);
-  --color-brand-700: oklch(0.46 0.16 254);
-  --color-brand-800: oklch(0.39 0.12 255);
-  --color-brand-900: oklch(0.33 0.08 256);
-  --color-brand-950: oklch(0.22 0.05 258);
+  --color-brand-50: oklch(0.97 0.02 278);
+  --color-brand-100: oklch(0.94 0.04 278);
+  --color-brand-200: oklch(0.88 0.08 278);
+  --color-brand-300: oklch(0.8 0.13 278);
+  --color-brand-400: oklch(0.71 0.18 278);
+  --color-brand-500: oklch(0.62 0.22 278);
+  --color-brand-600: oklch(0.55 0.24 278);
+  --color-brand-700: oklch(0.47 0.22 278);
+  --color-brand-800: oklch(0.39 0.17 278);
+  --color-brand-900: oklch(0.31 0.12 278);
+  --color-brand-950: oklch(0.21 0.08 278);
 
-  --color-ink: oklch(0.19 0.01 260);
-  --color-ink-muted: oklch(0.52 0.01 260);
+  --color-glow-300: oklch(0.9 0.12 190);
+  --color-glow-400: oklch(0.84 0.15 190);
+  --color-glow-500: oklch(0.76 0.15 195);
+
+  --color-ink: oklch(0.17 0.005 280);
+  --color-ink-muted: oklch(0.48 0.01 280);
+  --color-line: oklch(0.91 0.004 280);
   --color-surface: oklch(1 0 0);
-  --color-surface-alt: oklch(0.97 0.003 260);
+  --color-surface-alt: oklch(0.975 0.003 280);
+
+  --color-night: oklch(0.13 0.008 280);
+  --color-night-alt: oklch(0.18 0.012 280);
+  --color-night-line: oklch(1 0 0 / 0.1);
+  --color-night-muted: oklch(0.72 0.01 280);
 
   --font-sans:
     'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
@@ -32,7 +44,7 @@
   --font-mono:
     ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
 
-  --radius-card: 0.875rem;
+  --radius-card: 1rem;
 }
 
 @layer base {
@@ -45,11 +57,90 @@
     background-color: var(--color-surface);
     color: var(--color-ink);
     font-family: var(--font-sans);
+    font-feature-settings: 'cv11', 'ss01';
     text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
   }
 
   :focus-visible {
     outline: 2px solid var(--color-brand-500);
     outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+}
+
+/* A dark band. Text, borders and focus rings flip to suit the night canvas. */
+@utility band-dark {
+  background-color: var(--color-night);
+  color: oklch(0.97 0 0);
+  --color-ink-muted: var(--color-night-muted);
+  --color-line: var(--color-night-line);
+
+  & :focus-visible {
+    outline-color: var(--color-glow-400);
+  }
+}
+
+@utility eyebrow {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-brand-600);
+
+  .band-dark & {
+    color: var(--color-glow-400);
+  }
+}
+
+@utility btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  padding: 0.625rem 1.25rem;
+  font-weight: 500;
+  font-size: var(--text-sm);
+  line-height: 1.25rem;
+  transition:
+    background-color 150ms,
+    color 150ms,
+    border-color 150ms;
+}
+
+@utility btn-primary {
+  background-color: var(--color-ink);
+  color: var(--color-surface);
+
+  &:hover {
+    background-color: var(--color-brand-600);
+  }
+
+  .band-dark & {
+    background-color: oklch(0.97 0 0);
+    color: var(--color-night);
+  }
+
+  .band-dark &:hover {
+    background-color: var(--color-glow-300);
+  }
+}
+
+@utility btn-ghost {
+  border: 1px solid var(--color-line);
+  color: inherit;
+
+  &:hover {
+    background-color: var(--color-surface-alt);
+  }
+
+  .band-dark &:hover {
+    background-color: var(--color-night-alt);
   }
 }

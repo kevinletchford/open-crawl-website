@@ -1,6 +1,8 @@
 ---
+import '@fontsource-variable/inter'
 import BaseHead from '@/components/BaseHead.astro'
-import { SITE_TITLE } from '@/consts'
+import SiteFooter from '@/components/SiteFooter.astro'
+import SiteHeader from '@/components/SiteHeader.astro'
 import '@/styles/global.css'
 
 interface Props {
@@ -10,13 +12,6 @@ interface Props {
   type?: 'website' | 'article'
   publishedTime?: Date
 }
-
-const year = new Date().getFullYear()
-
-const nav = [
-  { href: '/', label: 'Home' },
-  { href: '/blog', label: 'Blog' },
-]
 ---
 
 <!doctype html>
@@ -32,40 +27,12 @@ const nav = [
       Skip to content
     </a>
 
-    <header class="border-b border-black/10">
-      <div
-        class="mx-auto flex max-w-5xl items-center justify-between px-6 py-4"
-      >
-        <a href="/" class="text-lg font-semibold tracking-tight">
-          {SITE_TITLE}
-        </a>
-        <nav aria-label="Main">
-          <ul class="flex gap-6 text-sm">
-            {
-              nav.map((item) => (
-                <li>
-                  <a class="hover:text-brand-600" href={item.href}>
-                    {item.label}
-                  </a>
-                </li>
-              ))
-            }
-          </ul>
-        </nav>
-      </div>
-    </header>
+    <SiteHeader />
 
-    <main id="main" class="mx-auto w-full max-w-5xl flex-1 px-6 py-16">
+    <main id="main" class="flex-1">
       <slot />
     </main>
 
-    <footer class="border-t border-black/10">
-      <div
-        class="mx-auto max-w-5xl px-6 py-8 text-sm text-[color:var(--color-ink-muted)]"
-      >
-        &copy; {year}
-        {SITE_TITLE}
-      </div>
-    </footer>
+    <SiteFooter />
   </body>
 </html>

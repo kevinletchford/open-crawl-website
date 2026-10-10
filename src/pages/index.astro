@@ -1,32 +1,24 @@
 ---
+import Logo from '@/components/Logo.astro'
+import Section from '@/components/Section.astro'
 import BaseLayout from '@/layouts/BaseLayout.astro'
-import { SITE_DESCRIPTION } from '@/consts'
+import { GITHUB_URL, SITE_DESCRIPTION } from '@/consts'
 ---
 
 <BaseLayout description={SITE_DESCRIPTION}>
-  <section class="max-w-2xl">
-    <p class="text-sm font-medium tracking-wide text-brand-600 uppercase">
-      Open source
-    </p>
-    <h1 class="mt-3 text-5xl font-bold tracking-tight text-balance">
-      Crawl the web, openly.
+  <Section tone="dark" innerClass="py-28 sm:py-40">
+    <Logo variant="mark" class="size-16" label="" />
+    <h1
+      class="mt-10 max-w-3xl text-5xl font-semibold tracking-tight text-balance sm:text-7xl"
+    >
+      See your site the way AI sees it.
     </h1>
-    <p class="mt-6 text-lg leading-relaxed text-[color:var(--color-ink-muted)]">
+    <p class="mt-6 max-w-2xl text-lg leading-relaxed text-ink-muted">
       {SITE_DESCRIPTION}
     </p>
-    <div class="mt-8 flex flex-wrap gap-3">
-      <a
-        href="/blog"
-        class="rounded-[--radius-card] bg-brand-600 px-5 py-2.5 font-medium text-white transition-colors hover:bg-brand-700"
-      >
-        Read the blog
-      </a>
-      <a
-        href="https://github.com/kevinletchford/open-crawl-website"
-        class="rounded-[--radius-card] border border-black/15 px-5 py-2.5 font-medium transition-colors hover:bg-[color:var(--color-surface-alt)]"
-      >
-        View on GitHub
-      </a>
+    <div class="mt-10 flex flex-wrap gap-3">
+      <a href="/blog" class="btn btn-primary">Read the blog</a>
+      <a href={GITHUB_URL} class="btn btn-ghost">View on GitHub</a>
     </div>
-  </section>
+  </Section>
 </BaseLayout>

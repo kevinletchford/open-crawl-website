@@ -1,0 +1,102 @@
+---
+import Logo from '@/components/Logo.astro'
+import { GITHUB_URL, NAV } from '@/consts'
+
+const path = Astro.url.pathname
+const isCurrent = (href: string) =>
+  href === '/' ? path === '/' : path.startsWith(href)
+---
+
+<header
+  class="sticky top-0 z-40 border-b border-line bg-surface/80 backdrop-blur-md"
+>
+  <div
+    class="mx-auto flex h-16 max-w-6xl items-center justify-between gap-6 px-4 sm:px-6"
+  >
+    <a href="/" class="shrink-0" aria-label="OpenCrawl home">
+      <Logo class="h-7 w-auto" label="" />
+    </a>
+
+    <nav aria-label="Main" class="hidden md:block">
+      <ul class="flex gap-8 text-sm">
+        {
+          NAV.map((item) => (
+            <li>
+              <a
+                class:list={[
+                  'transition-colors hover:text-ink',
+                  isCurrent(item.href)
+                    ? 'font-medium text-ink'
+                    : 'text-ink-muted',
+                ]}
+                href={item.href}
+                aria-current={isCurrent(item.href) ? 'page' : undefined}
+              >
+                {item.label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+
+    <div class="flex items-center gap-3">
+      <a href={GITHUB_URL} class="btn btn-ghost hidden sm:inline-flex">
+        GitHub
+      </a>
+
+      <details class="group relative md:hidden">
+        <summary
+          class="flex size-10 cursor-pointer list-none items-center justify-center rounded-full border border-line [&::-webkit-details-marker]:hidden"
+          aria-label="Menu"
+        >
+          <svg
+            viewBox="0 0 20 20"
+            class="size-5"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            aria-hidden="true"
+          >
+            <path
+              class="group-open:hidden"
+              d="M3 6h14M3 10h14M3 14h14"
+              stroke-linecap="round"></path>
+            <path
+              class="hidden group-open:block"
+              d="M5 5l10 10M15 5L5 15"
+              stroke-linecap="round"></path>
+          </svg>
+        </summary>
+        <nav
+          aria-label="Mobile"
+          class="absolute top-12 right-0 w-56 rounded-[--radius-card] border border-line bg-surface p-2 shadow-lg"
+        >
+          <ul>
+            {
+              NAV.map((item) => (
+                <li>
+                  <a
+                    class="block rounded-lg px-3 py-2 text-sm hover:bg-surface-alt"
+                    href={item.href}
+                    aria-current={isCurrent(item.href) ? 'page' : undefined}
+                  >
+                    {item.label}
+                  </a>
+                </li>
+              ))
+            }
+            <li class="mt-1 border-t border-line pt-1">
+              <a
+                class="block rounded-lg px-3 py-2 text-sm hover:bg-surface-alt"
+                href={GITHUB_URL}
+              >
+                GitHub
+              </a>
+            </li>
+          </ul>
+        </nav>
+      </details>
+    </div>
+  </div>
+</header>
