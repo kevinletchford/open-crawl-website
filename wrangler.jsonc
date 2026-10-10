@@ -18,8 +18,7 @@
     {
       "binding": "DB",
       "database_name": "open-crawl-invites",
-      // Replace with the id printed by `wrangler d1 create open-crawl-invites`.
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "71aaca62-5724-466d-9677-8e3aa7083d6a",
       "migrations_dir": "migrations",
     },
   ],

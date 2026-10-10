@@ -88,11 +88,10 @@ The form works without JavaScript: a plain POST gets a `303` to
 application/json` to get `{ "ok": true }` / `{ "ok": false, "error": "…" }`
 instead.
 
-**One-time setup:** create the database and put its id in `wrangler.jsonc`:
-
-```bash
-pnpm exec wrangler d1 create open-crawl-invites
-```
+**Database:** `open-crawl-invites` already exists in Cloudflare, and its id
+is in `wrangler.jsonc`. Deploys apply new migrations before shipping the
+Worker. The CI token (`CLOUDFLARE_API_TOKEN`) needs **D1: Edit** for that
+step.
 
 **Local testing:** `astro dev` doesn't run the Worker, so use:
 
