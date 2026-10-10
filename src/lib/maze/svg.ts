@@ -5,6 +5,7 @@
  * Coordinates are centred on the origin in maze units; angle 0 is 12 o'clock
  * and angles increase clockwise (SVG's y axis points down).
  */
+import type { InfiniteMaze } from './infinite'
 import type { Cell, PolarMaze, Wall } from './polar'
 
 const TAU = Math.PI * 2
@@ -82,4 +83,30 @@ export function channelFloorPath(maze: PolarMaze, arm: number, ring: number) {
     maze.radius(ring + 1),
     maze.channel * 2 + maze.wall,
   )
+}
+
+/**
+ * The first `rings` rings of an infinite maze, as one walls path and the
+ * corridor floors, in units where the outermost ring's outer edge is 1.
+ */
+export function infiniteMazePaths(
+  maze: InfiniteMaze,
+  rings: number,
+): { walls: string; floors: { d: string; distance: number }[] } {
+  let walls = ''
+  const floors: { d: string; distance: number }[] = []
+  for (let k = 0; k < rings; k++) {
+    const ring = maze.next()
+    const scale = maze.ratio ** k
+    for (const w of ring.walls) {
+      walls += sectorPath(w.r0 * scale, w.r1 * scale, w.a0, w.a1)
+    }
+    for (const cell of ring.cells) {
+      floors.push({
+        d: sectorPath(maze.ratio * scale, scale, cell.a0, cell.a1),
+        distance: cell.distance,
+      })
+    }
+  }
+  return { walls, floors }
 }

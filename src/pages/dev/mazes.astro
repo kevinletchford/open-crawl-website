@@ -3,6 +3,7 @@
  * Maze generator preview. Not linked anywhere and excluded from the sitemap;
  * removed once the real pages use the generator.
  */
+import InfiniteMazeSvg from '@/components/InfiniteMazeSvg.astro'
 import MazeSvg from '@/components/MazeSvg.astro'
 import BaseLayout from '@/layouts/BaseLayout.astro'
 
@@ -12,6 +13,14 @@ const seeds = [1, 7, 42, 2026]
 <BaseLayout title="Maze preview">
   <meta name="robots" content="noindex" slot="head" />
   <h1 class="text-3xl font-semibold">Maze preview</h1>
+  <h2 class="mt-10 font-medium">Infinite maze — one continuous maze</h2>
+  <div class="mt-4 grid grid-cols-1 gap-8 md:grid-cols-3">
+    <InfiniteMazeSvg seed={2026} class="w-full" />
+    <InfiniteMazeSvg seed={7} cells={24} class="w-full" />
+    <div class="rounded-2xl bg-neutral-950 p-6 text-white">
+      <InfiniteMazeSvg seed={2026} crawl={40} class="w-full" />
+    </div>
+  </div>
   <h2 class="mt-10 font-medium">Reference style — cross, 4 rings</h2>
   <div class="mt-4 grid grid-cols-2 gap-8 md:grid-cols-4">
     {seeds.map((seed) => <MazeSvg seed={seed} rings={4} class="w-full" />)}

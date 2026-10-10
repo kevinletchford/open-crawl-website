@@ -4,7 +4,8 @@
  * `currentColor`, so the maze takes the colour of its band.
  *
  * Set `crawl` to tint the corridors by crawl distance (0 = untouched, 1 = the
- * whole maze), drawn underneath the walls in `--maze-trail` (default: glow).
+ * whole maze), drawn underneath the walls in `--maze-trail` (default: the
+ * wall colour) at `--maze-trail-opacity` (default 0.22).
  */
 import {
   cellFloorPath,
@@ -59,7 +60,7 @@ if (crawl > 0) {
 >
   {
     trail.length > 0 && (
-      <g style="fill: var(--maze-trail, var(--color-glow-400, #5ee6e0))">
+      <g style="fill: var(--maze-trail, currentColor); opacity: var(--maze-trail-opacity, 0.22)">
         {trail.map((floor) => (
           <path d={floor.d} fill-opacity={1 - floor.t * 0.75} />
         ))}
