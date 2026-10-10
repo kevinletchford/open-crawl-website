@@ -10,19 +10,25 @@
  */
 import InfiniteMazeSvg from '@/components/InfiniteMazeSvg.astro'
 import { InfiniteMaze } from '@/lib/maze'
-import { FRONTIER_RING, VISIBLE_RINGS, ringFrontier } from '@/scripts/hero-maze'
+import {
+  FRONTIER_RING,
+  OVERSCAN,
+  START_ZOOM,
+  VISIBLE_RINGS,
+  ringFrontier,
+} from '@/scripts/hero-maze'
 
 const seed = 2026
 
 // Where the animation's crawl frontier starts: the same rule the script uses,
 // so the poster and the first WebGL frame match.
 const probe = new InfiniteMaze({ seed })
-const frontiers = Array.from({ length: Math.ceil(FRONTIER_RING) + 1 }, () =>
+const at = START_ZOOM + FRONTIER_RING
+const frontiers = Array.from({ length: Math.ceil(at) + 1 }, () =>
   ringFrontier(probe.next()),
 )
-const lo = Math.floor(FRONTIER_RING)
-const crawl =
-  frontiers[lo] + (frontiers[lo + 1] - frontiers[lo]) * (FRONTIER_RING - lo)
+const lo = Math.floor(at)
+const crawl = frontiers[lo] + (frontiers[lo + 1] - frontiers[lo]) * (at - lo)
 ---
 
 <div
@@ -33,9 +39,11 @@ const crawl =
 >
   <InfiniteMazeSvg
     seed={seed}
-    rings={VISIBLE_RINGS}
+    rings={VISIBLE_RINGS + START_ZOOM}
+    zoom={START_ZOOM}
+    frame={OVERSCAN}
     crawl={crawl}
-    class="size-full text-white transition-opacity duration-1000"
+    class="pointer-events-none absolute -inset-1/4 size-[150%] text-white transition-opacity duration-1000"
     label="A circular maze of thick rings, partly lit up by a crawl"
   />
   <canvas
@@ -48,12 +56,13 @@ const crawl =
     /* Matches the faint crawl trail in hero-maze.ts. */
     --maze-trail-opacity: 0.05;
   }
-  .hero-maze canvas {
+  .hero-maze canvas,
+  .hero-maze :global(svg) {
     /* WebGL can't read oklch(), so the hero palette is given in hex. */
     --hero-wall: #f2f2f2;
     --hero-trail: #ffffff;
-    /* The canvas overscans the maze so walls can zoom past the column;
-       fade the overscan out at the edges. */
+    /* Both overscan the column so the maze overflows it; fade the
+       overscan out at the edges. */
     mask-image: radial-gradient(closest-side, #000 62%, transparent);
   }
 </style>

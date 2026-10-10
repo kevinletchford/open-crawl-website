@@ -46,7 +46,7 @@ export interface HeroMazeOptions {
 const RINGS_PER_SECOND = 0.3
 const FOV = 35
 /** Canvas size relative to the maze's resting size (see the CSS overscan). */
-const OVERSCAN = 1.5
+export const OVERSCAN = 1.5
 /**
  * Rings drawn at rest, down to the vanishing point: the innermost are well
  * under a pixel wide, so new rings appear there unseen and the maze looks
@@ -55,6 +55,11 @@ const OVERSCAN = 1.5
 export const VISIBLE_RINGS = 26
 /** On-screen scales (1 = resting size) at which rings fade out. */
 const FADE_OUT = [1.7, 2.6]
+/**
+ * Rings already zoomed through when the hero loads, so the maze starts out
+ * overflowing its frame rather than showing its outer wall.
+ */
+export const START_ZOOM = 3
 /** How many rings inside the frame edge the crawl frontier sits. */
 export const FRONTIER_RING = 2
 
@@ -130,7 +135,7 @@ export function startHeroMaze(
 
   const rings: LiveRing[] = []
   /** Zoom position, in rings: ring k is at scale ratio^(k - zoom). */
-  let zoom = 0
+  let zoom = START_ZOOM
 
   const scaleOf = (index: number) => maze.ratio ** (index - zoom)
   const addRing = () => {
