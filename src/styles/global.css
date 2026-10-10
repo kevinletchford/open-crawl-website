@@ -24,8 +24,7 @@
   --color-night-ink: oklch(0.97 0 0);
 
   --font-sans:
-    'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
-    sans-serif;
+    'Gothic A1', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono:
     ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
 
