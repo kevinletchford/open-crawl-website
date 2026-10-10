@@ -1,7 +1,7 @@
 ---
 /**
  * The first rings of an infinite maze (src/lib/maze/infinite.ts), rendered to
- * inline SVG at build time: one continuous maze of rings around an eye, like
+ * inline SVG at build time: one continuous maze of rings around an open centre, like
  * the reference maze. Walls are drawn in `currentColor`.
  *
  * `crawl` lights corridors reached within that many crawl steps, in
@@ -11,7 +11,7 @@ import { InfiniteMaze, infiniteMazePaths } from '@/lib/maze'
 
 interface Props {
   seed: number
-  /** How many rings to draw around the eye; inner rings are narrower. */
+  /** How many rings to draw; inner rings are narrower. */
   rings?: number
   cells?: number
   ratio?: number

@@ -112,19 +112,6 @@ export class InfiniteMaze {
     return this.onCross(i) || this.onCross((i - 1 + n) % n)
   }
 
-  /**
-   * The "eye" at the centre of a maze drawn down to ring `rings`, as in the
-   * logo: a closed ring wall inside the innermost corridor. In the units of
-   * ring 0 (outer edge at radius 1).
-   */
-  eye(rings: number): Sector {
-    const width = (1 - this.ratio) * this.ratio ** (rings - 1)
-    const inner = this.ratio ** rings - (this.wall * width) / 2
-    const r1 = inner - (1 - this.wall) * width
-    // A thick ring around a small pupil, like the reference.
-    return { r0: r1 * 0.55, r1, a0: 0, a1: TAU }
-  }
-
   /** Generate the next ring inward. */
   next(): InfiniteRing {
     const { cells: n, rng } = this
