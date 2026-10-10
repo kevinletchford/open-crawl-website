@@ -86,14 +86,16 @@ export function channelFloorPath(maze: PolarMaze, arm: number, ring: number) {
 }
 
 /**
- * The first `rings` rings of an infinite maze, as one walls path and the
- * corridor floors, in units where the outermost ring's outer edge is 1.
+ * The first `rings` rings of an infinite maze, closed off by the eye at the
+ * centre, as one walls path and the corridor floors, in units where the
+ * outermost ring's outer edge is 1.
  */
 export function infiniteMazePaths(
   maze: InfiniteMaze,
   rings: number,
 ): { walls: string; floors: { d: string; distance: number }[] } {
-  let walls = ''
+  const eye = maze.eye(rings)
+  let walls = sectorPath(eye.r0, eye.r1, eye.a0, eye.a1)
   const floors: { d: string; distance: number }[] = []
   for (let k = 0; k < rings; k++) {
     const ring = maze.next()
