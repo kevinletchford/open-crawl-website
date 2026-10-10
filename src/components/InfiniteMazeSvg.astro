@@ -1,0 +1,60 @@
+---
+/**
+ * The first rings of an infinite maze (src/lib/maze/infinite.ts), rendered to
+ * inline SVG at build time: one continuous maze spiralling down to a
+ * vanishing point. Walls are drawn in `currentColor`.
+ *
+ * `crawl` lights corridors reached within that many crawl steps, in
+ * `--maze-trail` (default: the wall colour) at `--maze-trail-opacity`.
+ */
+import { InfiniteMaze, infiniteMazePaths } from '@/lib/maze'
+
+interface Props {
+  seed: number
+  /** How many rings to draw; inner rings shrink geometrically. */
+  rings?: number
+  cells?: number
+  ratio?: number
+  /** Light corridors within this many crawl steps of the entrances. */
+  crawl?: number
+  class?: string
+  /** Accessible name. Omit for a decorative maze. */
+  label?: string
+}
+
+const {
+  seed,
+  rings = 18,
+  cells,
+  ratio,
+  crawl = 0,
+  class: className,
+  label,
+} = Astro.props
+
+const maze = new InfiniteMaze({ seed, cells, ratio })
+const { walls, floors } = infiniteMazePaths(maze, rings)
+// Outer wall's outer edge: radius 1 plus half a wall.
+const r = 1 + (maze.wall * (1 - maze.ratio)) / 2
+const lit =
+  crawl > 0 ? floors.filter((f) => f.distance >= 0 && f.distance <= crawl) : []
+---
+
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox={`${-r} ${-r} ${r * 2} ${r * 2}`}
+  class={className}
+  role={label ? 'img' : undefined}
+  aria-label={label}
+  aria-hidden={label ? undefined : 'true'}
+>
+  {
+    lit.length > 0 && (
+      <path
+        d={lit.map((f) => f.d).join('')}
+        style="fill: var(--maze-trail, currentColor); opacity: var(--maze-trail-opacity, 0.22)"
+      />
+    )
+  }
+  <path d={walls} fill="currentColor"></path>
+</svg>
