@@ -75,7 +75,7 @@ const number = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 })
   <noscript>
     <style is:inline>
       .race-trail path {
-        opacity: 0.7 !important;
+        opacity: 0.16 !important;
       }
     </style>
   </noscript>
@@ -99,15 +99,15 @@ const number = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 })
 
 <style>
   .race-trail path {
-    fill: var(--color-brand-500);
+    fill: var(--color-ink);
     opacity: 0;
     transition: opacity 0.25s;
   }
   :global(.band-dark) .race-trail path {
-    fill: var(--color-glow-400);
+    fill: var(--color-night-ink);
   }
   .race-trail path.is-crawled {
-    opacity: 0.7;
+    opacity: 0.16;
   }
 </style>
 

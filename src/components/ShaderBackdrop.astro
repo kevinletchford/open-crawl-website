@@ -1,23 +1,26 @@
 ---
 /**
- * A dark band's backdrop: a large maze whose corridors glow with slowly
- * drifting gradient light (src/scripts/shader-backdrop.ts). The walls are
- * also drawn faintly, so the maze reads even before — or without — WebGL.
+ * A dark band's backdrop: an infinite maze whose corridors glow with slowly
+ * drifting light (src/scripts/shader-backdrop.ts). The walls are also drawn
+ * faintly, so the maze reads even before — or without — WebGL.
  *
  * Use in a `Section`'s `backdrop` slot; position it with `class`.
  */
-import { corridorMaskUri, generateMaze } from '@/lib/maze'
-import MazeSvg from '@/components/MazeSvg.astro'
+import InfiniteMazeSvg from '@/components/InfiniteMazeSvg.astro'
+import { InfiniteMaze, corridorMaskUri, infiniteMazePaths } from '@/lib/maze'
 
 interface Props {
   seed: number
+  /** Rings to draw; the backdrop is large, so the centre needs few. */
   rings?: number
   /** Positions the (square) maze inside the band. */
   class?: string
 }
 
-const { seed, rings = 9, class: className } = Astro.props
-const mask = corridorMaskUri(generateMaze({ seed, rings }))
+const { seed, rings = 14, class: className } = Astro.props
+const maze = new InfiniteMaze({ seed })
+const { walls } = infiniteMazePaths(maze, rings)
+const mask = corridorMaskUri(walls, 1 + (maze.wall * (1 - maze.ratio)) / 2)
 ---
 
 <div
@@ -31,7 +34,7 @@ const mask = corridorMaskUri(generateMaze({ seed, rings }))
     data-shader-backdrop
     class="absolute inset-0 size-full"
     style={`--maze-mask: ${mask}`}></canvas>
-  <MazeSvg
+  <InfiniteMazeSvg
     seed={seed}
     rings={rings}
     class="absolute inset-0 size-full text-white/[0.05]"
@@ -40,9 +43,9 @@ const mask = corridorMaskUri(generateMaze({ seed, rings }))
 
 <style>
   .shader-backdrop canvas {
-    /* WebGL can't read oklch(), so these are the glow and brand-500 tokens. */
-    --backdrop-a: #00e9e0;
-    --backdrop-b: #6e6dff;
+    /* Monochrome light; WebGL reads these as hex. */
+    --backdrop-a: #ffffff;
+    --backdrop-b: #8a8a8a;
     /* Corridors only, fading out towards the maze's edge. */
     mask-image:
       var(--maze-mask), radial-gradient(closest-side, #000 35%, transparent);
@@ -52,7 +55,7 @@ const mask = corridorMaskUri(generateMaze({ seed, rings }))
     transition: opacity 1.2s;
   }
   .shader-backdrop canvas:global(.is-live) {
-    opacity: 0.4;
+    opacity: 0.22;
   }
 </style>
 

@@ -1,5 +1,5 @@
 /**
- * Slow, drifting gradient light for the dark bands, drawn by a tiny WebGL2
+ * Slow, drifting light for the dark bands, drawn by a tiny WebGL2
  * fragment shader (no three.js). The canvas is masked to a maze's corridors in
  * CSS, so the light appears to flow through the maze.
  *
@@ -36,7 +36,10 @@ void main() {
 }`
 
 function hexToRgb(hex: string): [number, number, number] {
-  const value = parseInt(hex.replace('#', ''), 16)
+  let digits = hex.replace('#', '')
+  // CSS minifiers shorten #ffffff to #fff.
+  if (digits.length === 3) digits = [...digits].map((d) => d + d).join('')
+  const value = parseInt(digits, 16)
   return [(value >> 16) / 255, ((value >> 8) & 255) / 255, (value & 255) / 255]
 }
 
@@ -72,11 +75,11 @@ function start(canvas: HTMLCanvasElement) {
     hexToRgb(css.getPropertyValue(name).trim() || fallback)
   gl.uniform3fv(
     gl.getUniformLocation(program, 'uA'),
-    color('--backdrop-a', '#00e9e0'),
+    color('--backdrop-a', '#ffffff'),
   )
   gl.uniform3fv(
     gl.getUniformLocation(program, 'uB'),
-    color('--backdrop-b', '#6e6dff'),
+    color('--backdrop-b', '#8a8a8a'),
   )
   const uRes = gl.getUniformLocation(program, 'uRes')
   const uTime = gl.getUniformLocation(program, 'uTime')

@@ -1,4 +1,5 @@
 ---
+import InfiniteMazeSvg from '@/components/InfiniteMazeSvg.astro'
 import InviteCTA from '@/components/InviteCTA.astro'
 import MazeRace from '@/components/MazeRace.astro'
 import MazeSvg from '@/components/MazeSvg.astro'
@@ -90,14 +91,13 @@ const rps = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 })
   <Section tone="dark" innerClass="pt-16 pb-24 sm:pt-24 sm:pb-32">
     <div
       slot="backdrop"
-      class="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(60%_60%_at_75%_45%,color-mix(in_oklch,var(--color-brand-600)_28%,transparent),transparent)]"
+      class="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(60%_60%_at_75%_45%,color-mix(in_oklch,white_7%,transparent),transparent)]"
     >
     </div>
     <div class="grid items-center gap-12 lg:grid-cols-[1.05fr_1fr]">
       <div>
-        <p class="eyebrow">AI visibility, mapped</p>
         <h1
-          class="mt-4 text-5xl font-semibold tracking-tight text-balance sm:text-7xl"
+          class="text-5xl font-semibold tracking-tight text-balance sm:text-7xl"
         >
           Your site is a maze. AI is crawling it.
         </h1>
@@ -113,12 +113,11 @@ const rps = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 })
         data-hero-maze
         class="relative mx-auto aspect-square w-full max-w-xl"
       >
-        <MazeSvg
+        <InfiniteMazeSvg
           seed={2026}
-          rings={7}
-          crawl={0.55}
+          crawl={40}
           class="size-full text-white"
-          label="A circular maze, partly lit up by a crawl spreading in from its four entrances"
+          label="An endless circular maze spiralling inward, partly lit up by a crawl"
         />
       </div>
     </div>
@@ -146,8 +145,7 @@ const rps = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 })
   <!-- Problems -->
   <Section tone="alt">
     <div class="max-w-2xl">
-      <p class="eyebrow">The problem</p>
-      <h2 class="mt-3 text-4xl font-semibold tracking-tight text-balance">
+      <h2 class="text-4xl font-semibold tracking-tight text-balance">
         Search engines learned your site. AI agents haven’t.
       </h2>
       <p class="mt-4 text-lg text-ink-muted">
@@ -178,12 +176,10 @@ const rps = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 })
     <ShaderBackdrop
       slot="backdrop"
       seed={100}
-      rings={10}
       class="-top-1/3 -left-1/3 w-[60rem] opacity-80"
     />
     <div class="max-w-2xl">
-      <p class="eyebrow">The platform</p>
-      <h2 class="mt-3 text-4xl font-semibold tracking-tight text-balance">
+      <h2 class="text-4xl font-semibold tracking-tight text-balance">
         A map of every path through your site.
       </h2>
     </div>
@@ -214,8 +210,7 @@ const rps = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 })
   <!-- How it works -->
   <Section id="how-it-works">
     <div class="max-w-2xl">
-      <p class="eyebrow">How it works</p>
-      <h2 class="mt-3 text-4xl font-semibold tracking-tight text-balance">
+      <h2 class="text-4xl font-semibold tracking-tight text-balance">
         From dead ends to open paths in three steps.
       </h2>
     </div>
@@ -236,8 +231,7 @@ const rps = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 })
   <Section tone="alt">
     <div class="grid items-center gap-12 lg:grid-cols-2">
       <div>
-        <p class="eyebrow">Built for speed</p>
-        <h2 class="mt-3 text-4xl font-semibold tracking-tight text-balance">
+        <h2 class="text-4xl font-semibold tracking-tight text-balance">
           {rps.format(fastest)} requests a second, when the network gets out of the
           way.
         </h2>

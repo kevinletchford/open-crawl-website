@@ -37,12 +37,10 @@ const method = [
     <ShaderBackdrop
       slot="backdrop"
       seed={33450}
-      rings={10}
       class="-top-1/4 -right-1/4 w-[48rem]"
     />
-    <p class="eyebrow">Benchmarks</p>
     <h1
-      class="mt-4 max-w-3xl text-5xl font-semibold tracking-tight text-balance sm:text-6xl"
+      class="max-w-3xl text-5xl font-semibold tracking-tight text-balance sm:text-6xl"
     >
       How fast can you get through the maze?
     </h1>
@@ -113,7 +111,7 @@ const method = [
                       <div
                         class:list={[
                           'h-full rounded-full',
-                          result.rps === fastest ? 'bg-brand-600' : 'bg-ink',
+                          result.rps === fastest ? 'bg-ink' : 'bg-ink/35',
                         ]}
                         style={`width: ${(result.rps / fastest) * 100}%`}
                       />
