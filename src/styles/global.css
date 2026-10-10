@@ -4,39 +4,24 @@
  * OpenCrawl design tokens.
  *
  * Tailwind v4 generates utilities directly from these custom properties, so
- * `--color-brand-500` gives you `bg-brand-500`, `text-brand-500`, etc.
+ * `--color-ink` gives you `text-ink`, `bg-ink`, `border-ink`, etc.
  *
- * The site alternates light "paper" bands with dark "night" bands. Brand is a
- * single electric violet that holds up on both; `glow` is the crawl-trail
- * colour used for the maze frontier and highlights on dark bands.
+ * The palette is strictly monochrome: neutral greys with no hue. The site
+ * alternates light "paper" bands with dark "night" bands; contrast and
+ * weight, not colour, carry emphasis.
  */
 @theme {
-  --color-brand-50: oklch(0.97 0.02 278);
-  --color-brand-100: oklch(0.94 0.04 278);
-  --color-brand-200: oklch(0.88 0.08 278);
-  --color-brand-300: oklch(0.8 0.13 278);
-  --color-brand-400: oklch(0.71 0.18 278);
-  --color-brand-500: oklch(0.62 0.22 278);
-  --color-brand-600: oklch(0.55 0.24 278);
-  --color-brand-700: oklch(0.47 0.22 278);
-  --color-brand-800: oklch(0.39 0.17 278);
-  --color-brand-900: oklch(0.31 0.12 278);
-  --color-brand-950: oklch(0.21 0.08 278);
-
-  --color-glow-300: oklch(0.9 0.12 190);
-  --color-glow-400: oklch(0.84 0.15 190);
-  --color-glow-500: oklch(0.76 0.15 195);
-
-  --color-ink: oklch(0.17 0.005 280);
-  --color-ink-muted: oklch(0.48 0.01 280);
-  --color-line: oklch(0.91 0.004 280);
+  --color-ink: oklch(0.16 0 0);
+  --color-ink-muted: oklch(0.5 0 0);
+  --color-line: oklch(0.91 0 0);
   --color-surface: oklch(1 0 0);
-  --color-surface-alt: oklch(0.975 0.003 280);
+  --color-surface-alt: oklch(0.975 0 0);
 
-  --color-night: oklch(0.13 0.008 280);
-  --color-night-alt: oklch(0.18 0.012 280);
-  --color-night-line: oklch(1 0 0 / 0.1);
-  --color-night-muted: oklch(0.72 0.01 280);
+  --color-night: oklch(0.13 0 0);
+  --color-night-alt: oklch(0.17 0 0);
+  --color-night-line: oklch(1 0 0 / 0.09);
+  --color-night-muted: oklch(0.68 0 0);
+  --color-night-ink: oklch(0.97 0 0);
 
   --font-sans:
     'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
@@ -63,7 +48,7 @@
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-brand-500);
+    outline: 2px solid var(--color-ink);
     outline-offset: 2px;
   }
 
@@ -77,24 +62,12 @@
 /* A dark band. Text, borders and focus rings flip to suit the night canvas. */
 @utility band-dark {
   background-color: var(--color-night);
-  color: oklch(0.97 0 0);
+  color: var(--color-night-ink);
   --color-ink-muted: var(--color-night-muted);
   --color-line: var(--color-night-line);
 
   & :focus-visible {
-    outline-color: var(--color-glow-400);
-  }
-}
-
-@utility eyebrow {
-  font-size: var(--text-sm);
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-brand-600);
-
-  .band-dark & {
-    color: var(--color-glow-400);
+    outline-color: var(--color-night-ink);
   }
 }
 
@@ -119,16 +92,16 @@
   color: var(--color-surface);
 
   &:hover {
-    background-color: var(--color-brand-600);
+    background-color: oklch(0.32 0 0);
   }
 
   .band-dark & {
-    background-color: oklch(0.97 0 0);
+    background-color: var(--color-night-ink);
     color: var(--color-night);
   }
 
   .band-dark &:hover {
-    background-color: var(--color-glow-300);
+    background-color: oklch(0.82 0 0);
   }
 }
 
