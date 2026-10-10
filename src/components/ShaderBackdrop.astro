@@ -11,13 +11,13 @@ import { InfiniteMaze, corridorMaskUri, infiniteMazePaths } from '@/lib/maze'
 
 interface Props {
   seed: number
-  /** Rings to draw; the backdrop is large, so the centre needs few. */
+  /** Rings to draw around the eye. */
   rings?: number
   /** Positions the (square) maze inside the band. */
   class?: string
 }
 
-const { seed, rings = 14, class: className } = Astro.props
+const { seed, rings = 6, class: className } = Astro.props
 const maze = new InfiniteMaze({ seed })
 const { walls } = infiniteMazePaths(maze, rings)
 const mask = corridorMaskUri(walls, 1 + (maze.wall * (1 - maze.ratio)) / 2)
