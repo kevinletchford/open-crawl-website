@@ -1,9 +1,10 @@
 {
   "extends": "astro/tsconfigs/strict",
   "include": [".astro/types.d.ts", "**/*"],
+  // "worker" has its own tsconfig: it targets the Workers runtime, not the DOM.
   // ".astro" must NOT be excluded — that would cancel the types.d.ts include
   // above, which is what provides the `astro:content` module declarations.
-  "exclude": ["dist", "node_modules", ".wrangler"],
+  "exclude": ["dist", "node_modules", ".wrangler", "worker"],
   "compilerOptions": {
     // No "baseUrl": TypeScript 6 deprecates it (TS5101) and removes it in 7.
     // Without it, "paths" resolve relative to this file's directory.
