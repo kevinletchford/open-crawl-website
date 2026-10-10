@@ -23,6 +23,7 @@ const nav = [
 <html lang="en">
   <head>
     <BaseHead {...Astro.props} />
+    <slot name="head" />
   </head>
   <body class="flex min-h-screen flex-col">
     <a

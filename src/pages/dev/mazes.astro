@@ -1,0 +1,32 @@
+---
+/**
+ * Maze generator preview. Not linked anywhere and excluded from the sitemap;
+ * removed once the real pages use the generator.
+ */
+import MazeSvg from '@/components/MazeSvg.astro'
+import BaseLayout from '@/layouts/BaseLayout.astro'
+
+const seeds = [1, 7, 42, 2026]
+---
+
+<BaseLayout title="Maze preview">
+  <meta name="robots" content="noindex" slot="head" />
+  <h1 class="text-3xl font-semibold">Maze preview</h1>
+  <h2 class="mt-10 font-medium">Reference style — cross, 4 rings</h2>
+  <div class="mt-4 grid grid-cols-2 gap-8 md:grid-cols-4">
+    {seeds.map((seed) => <MazeSvg seed={seed} rings={4} class="w-full" />)}
+  </div>
+  <h2 class="mt-10 font-medium">More rings</h2>
+  <div class="mt-4 grid grid-cols-2 gap-8 md:grid-cols-4">
+    {seeds.map((seed) => <MazeSvg seed={seed} rings={8} class="w-full" />)}
+  </div>
+  <div class="mt-10 rounded-2xl bg-neutral-950 p-8 text-white">
+    <h2 class="font-medium">Crawl distances (60%, 100%)</h2>
+    <div class="mt-4 grid grid-cols-2 gap-8 md:grid-cols-4">
+      <MazeSvg seed={42} rings={6} crawl={0.6} class="w-full" />
+      <MazeSvg seed={42} rings={6} crawl={1} class="w-full" />
+      <MazeSvg seed={7} rings={6} cross={false} crawl={0.6} class="w-full" />
+      <MazeSvg seed={7} rings={6} cross={false} crawl={1} class="w-full" />
+    </div>
+  </div>
+</BaseLayout>

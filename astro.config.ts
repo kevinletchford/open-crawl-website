@@ -7,7 +7,10 @@ import { SITE_URL } from './src/consts'
 
 export default defineConfig({
   site: SITE_URL,
-  integrations: [mdx(), sitemap()],
+  integrations: [
+    mdx(),
+    sitemap({ filter: (page) => !new URL(page).pathname.startsWith('/dev/') }),
+  ],
   vite: {
     plugins: [tailwindcss()],
     server: {
