@@ -1,12 +1,17 @@
 ---
 import HeroMaze from '@/components/HeroMaze.astro'
+import Icon from '@/components/Icon.astro'
 import InviteCTA from '@/components/InviteCTA.astro'
 import MazeRace from '@/components/MazeRace.astro'
 import MazeSvg from '@/components/MazeSvg.astro'
 import Section from '@/components/Section.astro'
 import ShaderBackdrop from '@/components/ShaderBackdrop.astro'
+import AgentCoverageBars from '@/components/data/AgentCoverageBars.astro'
+import RequestLog from '@/components/data/RequestLog.astro'
 import { SITE_DESCRIPTION } from '@/consts'
 import { SYNTHETIC } from '@/data/benchmarks'
+import type { IconName } from '@/lib/icons'
+import { COVERAGE, LOG } from '@/data/demo'
 import BaseLayout from '@/layouts/BaseLayout.astro'
 
 // Real user-agent tokens of the AI crawlers and assistants OpenCrawl emulates.
@@ -40,29 +45,35 @@ const problems = [
   },
 ]
 
-const features = [
+const features: { title: string; icon: IconName; body: string }[] = [
   {
     title: 'Crawl as every agent',
+    icon: 'agent',
     body: 'Run the same crawl as GPTBot, ClaudeBot, PerplexityBot and more, honouring each one’s rules and limits.',
   },
   {
     title: 'AI readability score',
+    icon: 'score',
     body: 'Every page scored on access, rendering, structure and quotability, with the fixes ranked by impact.',
   },
   {
     title: 'Agent access audit',
+    icon: 'allowed',
     body: 'See exactly which agents your robots.txt, llms.txt, meta robots and headers allow — page by page.',
   },
   {
     title: 'Render diff',
+    icon: 'diff',
     body: 'Compare what a browser shows with what a non-JS crawler fetches, and find the content that goes missing.',
   },
   {
     title: 'Plugins at every step',
+    icon: 'hook',
     body: 'Hook into the crawl before the audit, before and after each page is captured, and in the renderer itself.',
   },
   {
     title: 'An MCP server for your agents',
+    icon: 'mcp',
     body: 'Let your own AI tools query crawl results directly: “which product pages can’t ClaudeBot read?”',
   },
 ]
@@ -131,6 +142,7 @@ const rps = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 })
         ))
       }
     </ul>
+    <AgentCoverageBars rows={COVERAGE} class="mx-auto mt-12 max-w-4xl" />
   </Section>
 
   <!-- Problems -->
@@ -178,15 +190,9 @@ const rps = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 })
       class="mt-14 grid gap-px overflow-hidden rounded-card border border-line bg-night-line sm:grid-cols-2 lg:grid-cols-3"
     >
       {
-        features.map((feature, i) => (
+        features.map((feature) => (
           <div class="bg-night p-8">
-            <MazeSvg
-              seed={100 + i}
-              rings={2}
-              cellLength={2.2}
-              crawl={(i + 1) / features.length}
-              class="size-10 text-white/80"
-            />
+            <Icon name={feature.icon} size={24} class="text-white/80" />
             <h3 class="mt-6 font-semibold">{feature.title}</h3>
             <p class="mt-2 text-sm leading-relaxed text-ink-muted">
               {feature.body}
@@ -216,6 +222,7 @@ const rps = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 })
         ))
       }
     </ol>
+    <RequestLog entries={LOG} class="mt-14" />
   </Section>
 
   <!-- Speed -->

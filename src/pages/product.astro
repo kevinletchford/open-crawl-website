@@ -3,28 +3,23 @@ import InfiniteMazeSvg from '@/components/InfiniteMazeSvg.astro'
 import InviteCTA from '@/components/InviteCTA.astro'
 import Section from '@/components/Section.astro'
 import ShaderBackdrop from '@/components/ShaderBackdrop.astro'
+import AgentAccessMatrix from '@/components/data/AgentAccessMatrix.astro'
+import CrawlFunnel from '@/components/data/CrawlFunnel.astro'
+import CrawlProgressChart from '@/components/data/CrawlProgressChart.astro'
+import MetricStrip from '@/components/data/MetricStrip.astro'
+import ReadabilityScore from '@/components/data/ReadabilityScore.astro'
+import RenderDiff from '@/components/data/RenderDiff.astro'
+import SiteMaze from '@/components/data/SiteMaze.astro'
+import {
+  ACCESS,
+  AGENTS,
+  FUNNEL,
+  METRICS,
+  PROGRESS,
+  READABILITY,
+  RENDER,
+} from '@/data/demo'
 import BaseLayout from '@/layouts/BaseLayout.astro'
-
-// Illustrative data for the mock panels below — labelled as such on the page.
-const agents = ['GPTBot', 'ClaudeBot', 'PerplexityBot', 'Google-Extended']
-const access: { path: string; allowed: ('yes' | 'no' | 'partial')[] }[] = [
-  { path: '/', allowed: ['yes', 'yes', 'yes', 'yes'] },
-  { path: '/pricing', allowed: ['yes', 'yes', 'partial', 'yes'] },
-  { path: '/docs/*', allowed: ['no', 'yes', 'yes', 'no'] },
-  { path: '/blog/*', allowed: ['yes', 'partial', 'yes', 'yes'] },
-  { path: '/app/*', allowed: ['no', 'no', 'no', 'no'] },
-]
-const accessLabel = { yes: 'Allowed', no: 'Blocked', partial: 'Partial' }
-
-const score = [
-  { label: 'Access', value: 92 },
-  { label: 'Rendering', value: 54 },
-  { label: 'Structure', value: 78 },
-  { label: 'Quotability', value: 61 },
-]
-const overall = Math.round(
-  score.reduce((sum, s) => sum + s.value, 0) / score.length,
-)
 
 const lifecycle = [
   { hook: 'preAudit', body: 'Read and adjust the audit configuration.' },
@@ -61,119 +56,49 @@ const lifecycle = [
     </div>
   </Section>
 
+  <Section innerClass="pt-0 pb-16 sm:pb-20">
+    <MetricStrip metrics={METRICS} />
+  </Section>
+
   <!-- Agent access -->
   <Section tone="alt">
-    <div class="grid items-center gap-12 lg:grid-cols-2">
-      <div>
-        <h2 class="text-3xl font-semibold tracking-tight text-balance">
-          Know who’s allowed in, page by page.
-        </h2>
-        <p class="mt-4 text-ink-muted">
-          robots.txt groups, llms.txt, meta robots, X-Robots-Tag headers and
-          firewall responses all decide what an agent can read. OpenCrawl
-          resolves them together for every agent and every URL, so a rule that
-          blocks one bot and not another is impossible to miss.
-        </p>
-      </div>
-      <figure
-        class="overflow-hidden rounded-card border border-line bg-surface shadow-sm"
-      >
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-sm">
-            <thead class="border-b border-line text-xs text-ink-muted">
-              <tr>
-                <th class="px-4 py-3 font-medium">Path</th>
-                {
-                  agents.map((agent) => (
-                    <th class="px-3 py-3 font-mono font-medium">{agent}</th>
-                  ))
-                }
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-line">
-              {
-                access.map((row) => (
-                  <tr>
-                    <td class="px-4 py-3 font-mono text-xs">{row.path}</td>
-                    {row.allowed.map((state) => (
-                      <td class="px-3 py-3">
-                        <span
-                          class:list={[
-                            'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs',
-                            state === 'yes' && 'bg-ink text-surface',
-                            state === 'no' &&
-                              'border border-line text-ink-muted line-through',
-                            state === 'partial' && 'bg-ink/10 text-ink',
-                          ]}
-                        >
-                          {accessLabel[state]}
-                        </span>
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              }
-            </tbody>
-          </table>
-        </div>
-        <figcaption
-          class="border-t border-line px-4 py-2 text-xs text-ink-muted"
-        >
-          Illustrative example
-        </figcaption>
-      </figure>
+    <div class="max-w-2xl">
+      <h2 class="text-3xl font-semibold tracking-tight text-balance">
+        Know who’s allowed in, page by page.
+      </h2>
+      <p class="mt-4 text-ink-muted">
+        robots.txt groups, llms.txt, meta robots, X-Robots-Tag headers and
+        firewall responses all decide what an agent can read. OpenCrawl resolves
+        them together for every agent and every URL, so a rule that blocks one
+        bot and not another is impossible to miss.
+      </p>
     </div>
+    <AgentAccessMatrix agents={AGENTS} rows={ACCESS} class="mt-12" />
+  </Section>
+
+  <!-- Funnel -->
+  <Section>
+    <div class="max-w-2xl">
+      <h2 class="text-3xl font-semibold tracking-tight text-balance">
+        See exactly where pages fall out of reach.
+      </h2>
+      <p class="mt-4 text-ink-muted">
+        Every URL is followed from discovery to a page an agent can actually
+        read. Each drop-off is counted, and links straight to the fixes that win
+        those pages back.
+      </p>
+    </div>
+    <CrawlFunnel {...FUNNEL} fixesHref="#readability" class="mt-12" />
   </Section>
 
   <!-- Score -->
-  <Section>
+  <Section tone="alt">
     <div class="grid items-center gap-12 lg:grid-cols-2">
-      <figure
-        class="order-last rounded-card border border-line bg-surface p-6 shadow-sm sm:p-8 lg:order-first"
-      >
-        <div class="flex items-center gap-6">
-          <div
-            class="relative grid size-28 shrink-0 place-items-center rounded-full"
-            style={`background: conic-gradient(var(--color-ink) ${overall * 3.6}deg, var(--color-line) 0)`}
-          >
-            <div
-              class="grid size-22 place-items-center rounded-full bg-surface"
-            >
-              <span class="text-3xl font-semibold tracking-tight"
-                >{overall}</span
-              >
-            </div>
-          </div>
-          <div>
-            <p class="font-mono text-xs text-ink-muted">/pricing</p>
-            <p class="mt-1 font-semibold">AI readability score</p>
-            <p class="mt-1 text-sm text-ink-muted">
-              Top fix: server-render the plan comparison table.
-            </p>
-          </div>
-        </div>
-        <dl class="mt-8 space-y-4">
-          {
-            score.map((item) => (
-              <div>
-                <div class="flex justify-between text-sm">
-                  <dt>{item.label}</dt>
-                  <dd class="font-mono text-ink-muted">{item.value}</dd>
-                </div>
-                <div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-line">
-                  <div
-                    class="h-full rounded-full bg-ink"
-                    style={`width: ${item.value}%`}
-                  />
-                </div>
-              </div>
-            ))
-          }
-        </dl>
-        <figcaption class="mt-6 text-xs text-ink-muted">
-          Illustrative example
-        </figcaption>
-      </figure>
+      <ReadabilityScore
+        {...READABILITY}
+        id="readability"
+        class="order-last lg:order-first"
+      />
       <div>
         <h2 class="text-3xl font-semibold tracking-tight text-balance">
           One number per page, and the reasons behind it.
@@ -204,50 +129,26 @@ const lifecycle = [
         captures both versions of every page and highlights what disappears.
       </p>
     </div>
-    <div class="mt-12 grid gap-4 md:grid-cols-2">
-      <figure class="rounded-card border border-line bg-night-alt p-6">
-        <figcaption class="text-xs text-ink-muted">
-          Browser (JavaScript on)
-        </figcaption>
-        <div class="mt-5 space-y-3" aria-hidden="true">
-          <div class="h-5 w-2/3 rounded bg-white/80"></div>
-          <div class="h-3 w-full rounded bg-white/25"></div>
-          <div class="h-3 w-5/6 rounded bg-white/25"></div>
-          <div class="grid grid-cols-3 gap-2 pt-3">
-            <div class="h-16 rounded bg-white/50"></div>
-            <div class="h-16 rounded bg-white/50"></div>
-            <div class="h-16 rounded bg-white/50"></div>
-          </div>
-          <div class="h-3 w-3/4 rounded bg-white/25"></div>
-        </div>
-      </figure>
-      <figure class="rounded-card border border-line bg-night-alt p-6">
-        <figcaption class="text-xs text-ink-muted">
-          <span class="font-mono">GPTBot</span> (raw HTML)
-        </figcaption>
-        <div class="mt-5 space-y-3" aria-hidden="true">
-          <div class="h-5 w-2/3 rounded bg-white/80"></div>
-          <div class="h-3 w-full rounded bg-white/25"></div>
-          <div class="h-3 w-5/6 rounded bg-white/25"></div>
-          <div class="grid grid-cols-3 gap-2 pt-3">
-            <div class="h-16 rounded border border-dashed border-white/35">
-            </div>
-            <div class="h-16 rounded border border-dashed border-white/35">
-            </div>
-            <div class="h-16 rounded border border-dashed border-white/35">
-            </div>
-          </div>
-          <div class="h-3 w-3/4 rounded bg-white/25"></div>
-        </div>
-        <p class="mt-5 text-xs text-ink-muted">
-          3 content blocks missing without JavaScript
-        </p>
-      </figure>
+    <RenderDiff {...RENDER} class="mt-12" />
+  </Section>
+
+  <!-- Watch the crawl -->
+  <Section>
+    <div class="max-w-2xl">
+      <h2 class="text-3xl font-semibold tracking-tight text-balance">
+        Watch each agent find its way through.
+      </h2>
+      <p class="mt-4 text-ink-muted">
+        A crawl spreads one link at a time. Follow it as each agent would, and
+        see the whole sections it never finds because one page turned it away.
+      </p>
     </div>
+    <SiteMaze class="mt-12" />
+    <CrawlProgressChart {...PROGRESS} class="mt-6" />
   </Section>
 
   <!-- Plugins + MCP -->
-  <Section>
+  <Section tone="alt">
     <div class="grid gap-16 lg:grid-cols-2">
       <div>
         <h2 class="text-3xl font-semibold tracking-tight text-balance">
