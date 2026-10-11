@@ -69,10 +69,12 @@ const lifecycle = [
           Know who’s allowed in, page by page.
         </h2>
         <p class="mt-4 text-ink-muted">
-          robots.txt groups, llms.txt, meta robots, X-Robots-Tag headers and
-          firewall responses all decide what an agent can read. OpenCrawl
-          resolves them together for every agent and every URL, so a rule that
-          blocks one bot and not another is impossible to miss.
+          robots.txt groups, llms.txt, meta robots and X-Robots-Tag headers all
+          decide what an agent can read. OpenCrawl resolves them together for
+          every agent and every URL, so a rule that blocks one bot and not
+          another is impossible to miss. It also flags firewalls that block by
+          user agent; connect your server logs to see what the real bots were
+          served.
         </p>
       </div>
       <figure
@@ -181,8 +183,10 @@ const lifecycle = [
         <p class="mt-4 text-ink-muted">
           Each page is scored on whether agents can reach it, whether its
           content survives without JavaScript, whether it’s structured clearly,
-          and whether it says things plainly enough to be quoted. Fixes are
-          ranked by how many pages and agents they unblock.
+          and whether it says things plainly enough to be quoted. The score is
+          an open list of checks, not a guess at how answer engines rank you, so
+          every point traces back to something on the page. Fixes are ranked by
+          how many pages and agents they unblock.
         </p>
       </div>
     </div>
@@ -200,7 +204,8 @@ const lifecycle = [
         What your visitors see vs. what the crawler gets.
       </h2>
       <p class="mt-4 text-ink-muted">
-        Most AI crawlers fetch raw HTML and never run your scripts. OpenCrawl
+        GPTBot, ClaudeBot, PerplexityBot and most other AI crawlers fetch raw
+        HTML and never run your scripts; Googlebot and Applebot do. OpenCrawl
         captures both versions of every page and highlights what disappears.
       </p>
     </div>
