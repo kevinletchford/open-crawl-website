@@ -1,0 +1,200 @@
+---
+/**
+ * How fast pages answer: a histogram of response times in 40ms buckets, with
+ * p50, p95 and p99 marked (solid, dashed, dotted, so they're told apart
+ * without colour). Bars up to the median are solid ink.
+ *
+ * A segmented control switches between agents; bar heights and markers
+ * animate to the new distribution. Hovering a bar reads it out below.
+ */
+import Figure from './Figure.astro'
+import { formatMs } from '@/lib/chart'
+import { LATENCY_BUCKET_MS, type LatencySeries } from '@/data/demo'
+
+interface Props {
+  series: Record<string, LatencySeries>
+  caption?: string
+  class?: string
+}
+
+const { series, caption, class: className } = Astro.props
+
+const names = Object.keys(series)
+const first = series[names[0]]
+const span = first.counts.length * LATENCY_BUCKET_MS
+const left = (ms: number) => `${(ms / span) * 100}%`
+const height = (s: LatencySeries, count: number) =>
+  `${(count / Math.max(...s.counts)) * 100}%`
+const markers = [
+  { key: 'p50', style: 'border-solid' },
+  { key: 'p95', style: 'border-dashed' },
+  { key: 'p99', style: 'border-dotted' },
+] as const
+---
+
+<Figure title="Response time" caption={caption} class={className}>
+  <div
+    slot="aside"
+    class="flex flex-wrap gap-1"
+    role="group"
+    aria-label="Agent"
+    data-latency-tabs
+  >
+    {
+      names.map((name, i) => (
+        <button
+          type="button"
+          class="btn btn-ghost px-3 py-1 font-mono text-xs aria-pressed:bg-ink aria-pressed:text-surface"
+          aria-pressed={i === 0 ? 'true' : 'false'}
+          data-agent={name}
+        >
+          {name}
+        </button>
+      ))
+    }
+  </div>
+
+  <div data-latency>
+    <dl class="flex flex-wrap gap-x-10 gap-y-3">
+      {
+        markers.map(({ key }) => (
+          <div>
+            <dt class="text-sm text-ink-muted">{key}</dt>
+            <dd
+              class="text-2xl font-semibold tracking-tight tabular-nums"
+              data-stat={key}
+            >
+              {formatMs(first[key])}
+            </dd>
+          </div>
+        ))
+      }
+    </dl>
+
+    <div class="relative mt-10">
+      <div class="flex h-48 items-end gap-px" data-latency-bars>
+        {
+          first.counts.map((count, i) => (
+            <div
+              class="group grow-y relative flex h-full flex-1 items-end"
+              style={`--delay: ${i * 12}ms`}
+              data-bucket={i}
+            >
+              <div
+                class:list={[
+                  'w-full rounded-t-[2px] transition-[height,background-color] duration-300 group-hover:bg-ink',
+                  (i + 1) * LATENCY_BUCKET_MS <= first.p50
+                    ? 'bg-ink'
+                    : 'bg-ink/30',
+                ]}
+                style={`height: ${height(first, count)}`}
+              />
+            </div>
+          ))
+        }
+      </div>
+      <div class="border-t border-ink/25"></div>
+      {
+        markers.map(({ key, style }) => (
+          <div
+            class:list={[
+              'pointer-events-none absolute -top-6 bottom-0 border-l border-ink/70 transition-[left] duration-300',
+              style,
+            ]}
+            style={`left: ${left(first[key])}`}
+            data-marker={key}
+          >
+            <span class="absolute top-0 left-1.5 font-mono text-xs whitespace-nowrap">
+              {key}
+            </span>
+          </div>
+        ))
+      }
+    </div>
+    <div
+      class="mt-2 flex justify-between font-mono text-xs text-ink-muted"
+      aria-hidden="true"
+    >
+      <span>0ms</span><span>{formatMs(span / 3)}</span><span
+        >{formatMs((span * 2) / 3)}</span
+      ><span>{formatMs(span)}</span>
+    </div>
+    <p
+      class="mt-4 h-4 text-xs text-ink-muted tabular-nums"
+      data-latency-readout
+    >
+      Hover a bar to read it.
+    </p>
+
+    <script
+      is:inline
+      type="application/json"
+      data-latency-data
+      set:html={JSON.stringify({ series, bucket: LATENCY_BUCKET_MS, span })}
+    />
+  </div>
+</Figure>
+
+<script>
+  import { fresh } from '@/scripts/data/fresh'
+  import { formatMs, formatNumber } from '@/lib/chart'
+
+  interface Series {
+    counts: number[]
+    p50: number
+    p95: number
+    p99: number
+  }
+
+  for (const root of fresh('[data-latency]')) {
+    const figure = root.closest('figure')!
+    const { series, bucket, span } = JSON.parse(
+      root.querySelector('[data-latency-data]')!.textContent!,
+    ) as { series: Record<string, Series>; bucket: number; span: number }
+    const buttons = [
+      ...figure.querySelectorAll<HTMLButtonElement>('[data-agent]'),
+    ]
+    const bars = [...root.querySelectorAll<HTMLElement>('[data-bucket]')]
+    const readout = root.querySelector<HTMLElement>('[data-latency-readout]')!
+    let current = series[buttons[0].dataset.agent!]
+
+    const select = (name: string) => {
+      current = series[name]
+      const max = Math.max(...current.counts)
+      for (const button of buttons) {
+        button.setAttribute(
+          'aria-pressed',
+          String(button.dataset.agent === name),
+        )
+      }
+      bars.forEach((bar, i) => {
+        const fill = bar.firstElementChild as HTMLElement
+        fill.style.height = `${(current.counts[i] / max) * 100}%`
+        const belowMedian = (i + 1) * bucket <= current.p50
+        fill.classList.toggle('bg-ink', belowMedian)
+        fill.classList.toggle('bg-ink/30', !belowMedian)
+      })
+      for (const key of ['p50', 'p95', 'p99'] as const) {
+        root.querySelector<HTMLElement>(`[data-marker="${key}"]`)!.style.left =
+          `${(current[key] / span) * 100}%`
+        root.querySelector<HTMLElement>(`[data-stat="${key}"]`)!.textContent =
+          formatMs(current[key])
+      }
+    }
+
+    for (const button of buttons) {
+      button.addEventListener('click', () => select(button.dataset.agent!))
+    }
+    bars.forEach((bar, i) => {
+      bar.addEventListener('pointerenter', () => {
+        const count = current.counts[i]
+        readout.textContent = `${i * bucket}–${(i + 1) * bucket}ms · ${formatNumber(count)} ${count === 1 ? 'page' : 'pages'}`
+      })
+    })
+    root
+      .querySelector('[data-latency-bars]')!
+      .addEventListener('pointerleave', () => {
+        readout.textContent = 'Hover a bar to read it.'
+      })
+  }
+</script>

@@ -1,0 +1,419 @@
+---
+/**
+ * The site as a maze: every cell is a page, the corridors are links, and a
+ * crawl floods in from the entrance one link at a time, the way MazeRace
+ * floods its mazes. Each agent gets its own flood. Pages an agent is blocked
+ * from are reached but not entered (outlined), and anything only linked from
+ * behind them is never discovered at all, which is the real cost of a
+ * blocked section.
+ *
+ * Fills follow the rest of the system: readable solid, partial hatch,
+ * blocked outline. Hovering a page names it and lights its route back to
+ * the entrance.
+ */
+import Figure from './Figure.astro'
+import { AGENTS, type Agent } from '@/data/demo'
+import { cellFloorPath, crawl, generateMaze, mazeWallsPath } from '@/lib/maze'
+import { mulberry32 } from '@/lib/maze/rng'
+
+interface Props {
+  seed?: number
+  rings?: number
+  caption?: string
+  class?: string
+}
+
+const { seed = 11, rings = 7, caption, class: className } = Astro.props
+
+const maze = generateMaze({ seed, rings, cross: false })
+const { cellDistance } = crawl(maze)
+const walls = mazeWallsPath(maze)
+const start = maze.cellsByRing[rings - 1][0]
+
+// Each cell's parent on the way back to the entrance. The maze is a perfect
+// maze (a tree), so the route is unique.
+const parent = maze.cells.map((cell) =>
+  cell.id === start
+    ? -1
+    : cell.links.find(
+        (other) => cellDistance[other] === cellDistance[cell.id] - 1,
+      )!,
+)
+
+// The first few links in are top-level pages. Everything deeper is cut
+// into sections in depth-first order, so each section is a run of related
+// pages. A page can only lead to pages after it in that order, so putting the
+// blocked sections (/docs for some agents, /app for all) last means a block
+// cuts off its own pages and what hangs below them, not the whole site.
+const WORDS = [
+  'overview',
+  'setup',
+  'faq',
+  'guide',
+  'api',
+  'limits',
+  'changelog',
+  'billing',
+  'teams',
+  'export',
+  'webhooks',
+  'search',
+  'reports',
+  'agents',
+  'rules',
+  'render',
+  'sitemaps',
+  'archive',
+  'tags',
+  'security',
+]
+const SECTIONS = ['/pricing', '/blog', '/products', '/about', '/docs', '/app']
+const TOP_LEVEL = 3
+const children = maze.cells.map(() => [] as number[])
+parent.forEach((p, id) => {
+  if (p !== -1) children[p].push(id)
+})
+const order: number[] = []
+const stack = [start]
+while (stack.length) {
+  const id = stack.pop()!
+  if (cellDistance[id] > TOP_LEVEL) order.push(id)
+  stack.push(...children[id].toReversed())
+}
+const section = new Map(
+  order.map((id, i) => [
+    id,
+    SECTIONS[Math.floor((i / order.length) * SECTIONS.length)],
+  ]),
+)
+const sectionOf = (id: number) => section.get(id) ?? ''
+const pathOf = (id: number) => {
+  if (id === start) return '/'
+  const section = sectionOf(id)
+  const word = WORDS[id % WORDS.length]
+  return section ? `${section}/${word}-${id}` : `/${word}`
+}
+
+// The same rules as the access matrix, plus some pages that only render
+// with JavaScript.
+type State = 'readable' | 'partial' | 'blocked'
+const rng = mulberry32(seed)
+const jsOnly = maze.cells.map(() => rng() < 0.14)
+const stateFor = (agent: Agent, id: number): State => {
+  const section = sectionOf(id)
+  if (section === '/app') return 'blocked'
+  if (
+    section === '/docs' &&
+    (agent === 'GPTBot' || agent === 'Google-Extended')
+  )
+    return 'blocked'
+  if (section === '/products' && agent === 'PerplexityBot') return 'blocked'
+  if (section === '/blog' && agent === 'ClaudeBot') return 'partial'
+  return jsOnly[id] ? 'partial' : 'readable'
+}
+
+// Per agent: a BFS from the entrance that doesn't follow links out of
+// blocked pages. Step -1 means never discovered.
+const floods = Object.fromEntries(
+  AGENTS.map((agent) => {
+    const step = new Array<number>(maze.cells.length).fill(-1)
+    const state = maze.cells.map((cell) => stateFor(agent, cell.id))
+    step[start] = 0
+    const queue = [start]
+    for (let head = 0; head < queue.length; head++) {
+      const id = queue[head]
+      if (state[id] === 'blocked') continue
+      for (const next of maze.cells[id].links) {
+        if (step[next] !== -1) continue
+        step[next] = step[id] + 1
+        queue.push(next)
+      }
+    }
+    return [
+      agent,
+      { step, state: state.map((s, i) => (step[i] === -1 ? 'unreached' : s)) },
+    ]
+  }),
+) as Record<Agent, { step: number[]; state: string[] }>
+
+const r = maze.outerRadius
+const hatchId = `maze-hatch-${seed}`
+const cells = maze.cells.map((cell) => ({
+  id: cell.id,
+  d: cellFloorPath(maze, cell),
+  path: pathOf(cell.id),
+  depth: cellDistance[cell.id],
+}))
+---
+
+<Figure title="The site as a maze" caption={caption} class={className}>
+  <div
+    slot="aside"
+    class="flex flex-wrap gap-1"
+    role="group"
+    aria-label="Agent"
+  >
+    {
+      AGENTS.map((agent, i) => (
+        <button
+          type="button"
+          class="btn btn-ghost px-3 py-1 font-mono text-xs aria-pressed:bg-ink aria-pressed:text-surface"
+          aria-pressed={i === 0 ? 'true' : 'false'}
+          data-maze-agent={agent}
+        >
+          {agent}
+        </button>
+      ))
+    }
+  </div>
+
+  <div class="grid items-center gap-10 lg:grid-cols-[1fr_15rem]" data-site-maze>
+    <div class="relative mx-auto w-full max-w-md">
+      <svg
+        viewBox={`${-r} ${-r} ${r * 2} ${r * 2}`}
+        class="w-full"
+        role="img"
+        aria-label="A crawl spreading through the site, drawn as a maze"
+      >
+        <defs>
+          <pattern
+            id={hatchId}
+            width="0.22"
+            height="0.22"
+            patternUnits="userSpaceOnUse"
+            patternTransform="rotate(45)"
+          >
+            <line
+              x1="0"
+              y1="0"
+              x2="0"
+              y2="0.22"
+              class="stroke-ink"
+              stroke-width="0.07"></line>
+          </pattern>
+        </defs>
+        <g class="maze-floors" style={`--hatch: url(#${hatchId})`}>
+          {
+            cells.map((cell) => (
+              <path d={cell.d} data-cell={cell.id} data-path={cell.path} />
+            ))
+          }
+        </g>
+        <path d={walls} class="pointer-events-none fill-ink"></path>
+      </svg>
+      <div
+        class="pointer-events-none absolute z-10 w-56 rounded-lg border border-line bg-surface-alt p-3 text-xs shadow-lg shadow-black/40"
+        data-maze-tip
+        hidden
+      >
+        <p class="font-mono break-all" data-tip="path"></p>
+        <p class="mt-1 text-ink-muted" data-tip="meta"></p>
+      </div>
+    </div>
+
+    <div>
+      <dl class="grid grid-cols-2 gap-x-6 gap-y-5 lg:grid-cols-1">
+        {
+          [
+            { key: 'readable', label: 'Readable', swatch: 'bg-ink/60' },
+            { key: 'partial', label: 'Partial', swatch: 'hatch opacity-80' },
+            {
+              key: 'blocked',
+              label: 'Blocked',
+              swatch: 'border border-dashed border-ink',
+            },
+            {
+              key: 'unreached',
+              label: 'Never discovered',
+              swatch: 'border border-line',
+            },
+          ].map((item) => (
+            <div>
+              <dt class="flex items-center gap-2 text-sm text-ink-muted">
+                <span class:list={['size-3 rounded-[3px]', item.swatch]} />
+                {item.label}
+              </dt>
+              <dd
+                class="mt-1 text-2xl font-semibold tracking-tight tabular-nums"
+                data-maze-count={item.key}
+              >
+                0
+              </dd>
+            </div>
+          ))
+        }
+      </dl>
+      <p class="mt-6 text-xs text-ink-muted">
+        Deepest page reached:{' '}
+        <span class="text-ink tabular-nums" data-maze-depth>0</span> links from the
+        home page.
+      </p>
+    </div>
+
+    <script
+      is:inline
+      type="application/json"
+      data-maze-data
+      set:html={JSON.stringify({
+        floods,
+        parent,
+        depth: cells.map((c) => c.depth),
+      })}
+    />
+  </div>
+</Figure>
+
+<style>
+  .maze-floors path {
+    fill: var(--color-ink);
+    fill-opacity: 0;
+    stroke: var(--color-ink);
+    stroke-opacity: 0;
+    stroke-width: 0.06;
+    stroke-dasharray: 0.12 0.12;
+    transition:
+      fill-opacity 0.25s,
+      stroke-opacity 0.25s;
+  }
+  .maze-floors path.is-readable {
+    fill-opacity: 0.55;
+  }
+  .maze-floors path.is-partial {
+    fill: var(--hatch);
+    fill-opacity: 1;
+  }
+  .maze-floors path.is-blocked {
+    stroke-opacity: 0.8;
+    fill-opacity: 0.06;
+  }
+  .maze-floors path.is-route {
+    fill: var(--color-ink);
+    fill-opacity: 0.95;
+  }
+  .maze-floors path.is-hover {
+    fill: var(--color-ink);
+    fill-opacity: 1;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .maze-floors path {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  import { fresh } from '@/scripts/data/fresh'
+  import { formatNumber } from '@/lib/chart'
+  import { onReveal, still } from '@/scripts/data/reveal'
+
+  type Flood = { step: number[]; state: string[] }
+
+  for (const root of fresh('[data-site-maze]')) {
+    const figure = root.closest<HTMLElement>('figure')!
+    const { floods, parent, depth } = JSON.parse(
+      root.querySelector('[data-maze-data]')!.textContent!,
+    ) as { floods: Record<string, Flood>; parent: number[]; depth: number[] }
+    const paths = [...root.querySelectorAll<SVGPathElement>('[data-cell]')]
+    const tip = root.querySelector<HTMLElement>('[data-maze-tip]')!
+    const buttons = [
+      ...figure.querySelectorAll<HTMLButtonElement>('[data-maze-agent]'),
+    ]
+    const states = ['readable', 'partial', 'blocked', 'unreached']
+    let flood: Flood = floods[buttons[0].dataset.mazeAgent!]
+    let frame = 0
+
+    const paint = (upTo: number) => {
+      const counts: Record<string, number> = {
+        readable: 0,
+        partial: 0,
+        blocked: 0,
+        unreached: 0,
+      }
+      let deepest = 0
+      paths.forEach((path, id) => {
+        const step = flood.step[id]
+        const reached = step !== -1 && step <= upTo
+        const state = flood.state[id]
+        for (const s of states)
+          path.classList.toggle(`is-${s}`, reached && s === state)
+        if (reached) {
+          counts[state]++
+          if (state !== 'blocked') deepest = Math.max(deepest, step)
+        }
+      })
+      // Until the flood is done, what's left is still to be discovered.
+      counts.unreached =
+        paths.length - counts.readable - counts.partial - counts.blocked
+      for (const s of states) {
+        root.querySelector(`[data-maze-count="${s}"]`)!.textContent =
+          formatNumber(counts[s])
+      }
+      root.querySelector('[data-maze-depth]')!.textContent = String(deepest)
+    }
+
+    const run = () => {
+      cancelAnimationFrame(frame)
+      const maxStep = Math.max(...flood.step)
+      if (still) return paint(maxStep)
+      const duration = 2400
+      const begin = performance.now()
+      const tick = (now: number) => {
+        const t = Math.min(1, (now - begin) / duration)
+        paint(Math.floor(t * maxStep))
+        if (t < 1) frame = requestAnimationFrame(tick)
+      }
+      frame = requestAnimationFrame(tick)
+    }
+
+    for (const button of buttons) {
+      button.addEventListener('click', () => {
+        for (const b of buttons)
+          b.setAttribute('aria-pressed', String(b === button))
+        flood = floods[button.dataset.mazeAgent!]
+        run()
+      })
+    }
+
+    const stateText: Record<string, string> = {
+      readable: 'Readable',
+      partial: 'Partial: some content needs JavaScript',
+      blocked: 'Blocked',
+      unreached: 'Never discovered: only linked from blocked pages',
+    }
+    const svg = root.querySelector('svg')!
+    const box = tip.parentElement!
+    for (const path of paths) {
+      path.addEventListener('pointerenter', () => {
+        const id = Number(path.dataset.cell)
+        for (let at = parent[id]; at !== -1; at = parent[at]) {
+          paths[at].classList.add('is-route')
+        }
+        path.classList.add('is-hover')
+        tip.querySelector('[data-tip="path"]')!.textContent = path.dataset.path!
+        tip.querySelector('[data-tip="meta"]')!.textContent =
+          `${depth[id]} links deep · ${stateText[flood.state[id]]}`
+        tip.hidden = false
+        const outer = box.getBoundingClientRect()
+        const cell = path.getBoundingClientRect()
+        const left = Math.min(
+          Math.max(
+            0,
+            cell.left - outer.left + cell.width / 2 - tip.offsetWidth / 2,
+          ),
+          outer.width - tip.offsetWidth,
+        )
+        tip.style.left = `${left}px`
+        tip.style.top = `${cell.bottom - outer.top + 8}px`
+      })
+      path.addEventListener('pointerleave', () => {
+        for (const p of svg.querySelectorAll('.is-route, .is-hover')) {
+          p.classList.remove('is-route', 'is-hover')
+        }
+        tip.hidden = true
+      })
+    }
+
+    paint(-1)
+    onReveal(figure, run)
+  }
+</script>

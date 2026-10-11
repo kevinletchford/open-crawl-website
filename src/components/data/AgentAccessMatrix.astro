@@ -1,0 +1,254 @@
+---
+/**
+ * Who can read what: paths down the side, agents across the top, and in
+ * each cell the access state drawn with the status icons (solid tick,
+ * half-filled ring, struck ring), so state reads by shape alone.
+ *
+ * Hovering or focusing a cell lights its row and column and shows the rule
+ * that decided it. "Mixed only" hides the rows where every agent agrees,
+ * which leaves the interesting ones.
+ */
+import Icon from '@/components/Icon.astro'
+import Figure from './Figure.astro'
+import { formatNumber } from '@/lib/chart'
+import type { AccessRow, AccessState, RuleSource } from '@/data/demo'
+import type { IconName } from '@/lib/icons'
+
+interface Props {
+  agents: readonly string[]
+  rows: AccessRow[]
+  caption?: string
+  class?: string
+}
+
+const { agents, rows, caption, class: className } = Astro.props
+
+const stateLabel: Record<AccessState, string> = {
+  allowed: 'Allowed',
+  partial: 'Partial',
+  blocked: 'Blocked',
+}
+const sourceIcon: Record<RuleSource, IconName> = {
+  robots: 'robots',
+  meta: 'structure',
+  header: 'raw-html',
+  firewall: 'blocked',
+  llms: 'llms',
+}
+const sourceLabel: Record<RuleSource, string> = {
+  robots: 'robots.txt',
+  meta: 'Meta robots',
+  header: 'Response header',
+  firewall: 'Firewall',
+  llms: 'llms.txt',
+}
+
+const readable = (state: AccessState) => state !== 'blocked'
+const columnTotals = agents.map(
+  (_, col) => rows.filter((row) => readable(row.cells[col].state)).length,
+)
+---
+
+<Figure title="Agent access" caption={caption} class={className} bodyClass="">
+  <div
+    slot="aside"
+    class="flex gap-1"
+    role="group"
+    aria-label="Filter rows"
+    data-matrix-filter
+  >
+    <button
+      type="button"
+      class="btn btn-ghost px-3 py-1 text-xs aria-pressed:bg-ink aria-pressed:text-surface"
+      aria-pressed="true"
+      data-filter="all">All</button
+    >
+    <button
+      type="button"
+      class="btn btn-ghost px-3 py-1 text-xs aria-pressed:bg-ink aria-pressed:text-surface"
+      aria-pressed="false"
+      data-filter="mixed">Mixed only</button
+    >
+  </div>
+
+  <div class="relative" data-matrix>
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-sm">
+        <thead class="border-b border-line text-xs text-ink-muted">
+          <tr>
+            <th class="px-6 py-3 font-medium sm:pl-8">Path</th>
+            {
+              agents.map((agent, col) => (
+                <th
+                  class="px-3 py-3 text-center font-mono font-medium"
+                  data-col={col}
+                >
+                  {agent}
+                </th>
+              ))
+            }
+            <th class="px-3 py-3 text-right font-medium">Agents</th>
+            <th class="px-6 py-3 text-right font-medium sm:pr-8">Pages</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-line">
+          {
+            rows.map((row) => {
+              const open = row.cells.filter((c) => readable(c.state)).length
+              const mixed = new Set(row.cells.map((c) => c.state)).size > 1
+              return (
+                <tr
+                  class="transition-colors hover:bg-ink/[0.04]"
+                  data-mixed={mixed ? '' : undefined}
+                >
+                  <td class="px-6 py-3 font-mono text-xs sm:pl-8">
+                    {row.path}
+                  </td>
+                  {row.cells.map((cell, col) => (
+                    <td
+                      class="px-3 py-2 text-center transition-colors"
+                      data-col={col}
+                    >
+                      <button
+                        type="button"
+                        class="inline-grid size-8 place-items-center rounded-md hover:bg-ink/10 focus-visible:bg-ink/10"
+                        data-cell
+                      >
+                        <Icon
+                          name={cell.state}
+                          size={20}
+                          variant={
+                            cell.state === 'allowed' ? 'solid' : 'outline'
+                          }
+                          class={
+                            cell.state === 'blocked' ? 'text-ink-muted' : ''
+                          }
+                        />
+                        <span class="sr-only">
+                          {cell.agent} on {row.path}: {stateLabel[cell.state]}.{' '}
+                          {sourceLabel[cell.source]}: {cell.rule}
+                        </span>
+                        <template data-pop>
+                          <p class="flex items-center gap-2 font-medium">
+                            <Icon
+                              name={cell.state}
+                              size={16}
+                              variant={
+                                cell.state === 'allowed' ? 'solid' : 'outline'
+                              }
+                            />
+                            {stateLabel[cell.state]}
+                            <span class="font-normal text-ink-muted">
+                              · <span class="font-mono">{cell.agent}</span>
+                            </span>
+                          </p>
+                          <p class="mt-2 flex items-center gap-2 text-ink-muted">
+                            <Icon name={sourceIcon[cell.source]} size={16} />
+                            {sourceLabel[cell.source]}
+                          </p>
+                          <p class="mt-1 font-mono break-words">{cell.rule}</p>
+                        </template>
+                      </button>
+                    </td>
+                  ))}
+                  <td class="px-3 py-3 text-right text-xs text-ink-muted tabular-nums">
+                    {open}/{agents.length}
+                  </td>
+                  <td class="px-6 py-3 text-right text-xs tabular-nums sm:pr-8">
+                    {formatNumber(row.pages)}
+                  </td>
+                </tr>
+              )
+            })
+          }
+        </tbody>
+        <tfoot class="border-t border-line text-xs text-ink-muted">
+          <tr>
+            <th scope="row" class="px-6 py-3 font-medium sm:pl-8"
+              >Paths readable</th
+            >
+            {
+              columnTotals.map((total, col) => (
+                <td class="px-3 py-3 text-center tabular-nums" data-col={col}>
+                  {total}/{rows.length}
+                </td>
+              ))
+            }
+            <td colspan="2"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <div
+      class="pointer-events-none absolute z-10 w-72 rounded-lg border border-line bg-surface-alt p-3 text-xs shadow-lg shadow-black/40"
+      data-matrix-pop
+      hidden
+    >
+    </div>
+  </div>
+</Figure>
+
+<script>
+  import { fresh } from '@/scripts/data/fresh'
+  for (const root of fresh('[data-matrix]')) {
+    const figure = root.closest('figure')!
+    const pop = root.querySelector<HTMLElement>('[data-matrix-pop]')!
+    const table = root.querySelector('table')!
+
+    const lightColumn = (col: string | undefined) => {
+      for (const cell of table.querySelectorAll<HTMLElement>('[data-col]')) {
+        cell.classList.toggle('bg-ink/[0.04]', cell.dataset.col === col)
+      }
+    }
+
+    const open = (button: HTMLElement) => {
+      const td = button.closest<HTMLElement>('td')!
+      const template = button.querySelector('template')!
+      pop.replaceChildren(template.content.cloneNode(true))
+      pop.hidden = false
+      lightColumn(td.dataset.col)
+      // Below the cell, or above it near the bottom; kept inside the figure.
+      const box = root.getBoundingClientRect()
+      const cell = button.getBoundingClientRect()
+      const left = Math.min(
+        Math.max(
+          8,
+          cell.left - box.left + cell.width / 2 - pop.offsetWidth / 2,
+        ),
+        box.width - pop.offsetWidth - 8,
+      )
+      pop.style.left = `${left}px`
+      const below = cell.bottom - box.top + 6
+      pop.style.top =
+        below + pop.offsetHeight > box.height
+          ? `${cell.top - box.top - pop.offsetHeight - 6}px`
+          : `${below}px`
+    }
+    const close = () => {
+      pop.hidden = true
+      lightColumn(undefined)
+    }
+
+    for (const button of table.querySelectorAll<HTMLElement>('[data-cell]')) {
+      button.addEventListener('pointerenter', () => open(button))
+      button.addEventListener('focus', () => open(button))
+      button.addEventListener('pointerleave', close)
+      button.addEventListener('blur', close)
+    }
+
+    const filters = [
+      ...figure.querySelectorAll<HTMLButtonElement>('[data-filter]'),
+    ]
+    for (const filter of filters) {
+      filter.addEventListener('click', () => {
+        const mixedOnly = filter.dataset.filter === 'mixed'
+        for (const f of filters)
+          f.setAttribute('aria-pressed', String(f === filter))
+        for (const row of table.querySelectorAll<HTMLElement>('tbody tr')) {
+          row.hidden = mixedOnly && row.dataset.mixed === undefined
+        }
+      })
+    }
+  }
+</script>

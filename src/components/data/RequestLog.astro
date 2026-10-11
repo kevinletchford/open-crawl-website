@@ -1,0 +1,311 @@
+---
+/**
+ * A tailing log of the crawler's requests, like Stripe's developer logs:
+ * time, status, agent, path, duration. New requests slide in at the top;
+ * click one to open its request and response, and the rule that decided
+ * it when a rule did.
+ *
+ * Status is told by fill, not colour: 2xx solid, 3xx outline with the
+ * redirect icon, 4xx/5xx outline and struck through. The stream pauses on
+ * hover, off screen, in a background tab, and on request; with reduced
+ * motion (or no script) it's a static list.
+ */
+import Icon from '@/components/Icon.astro'
+import Figure from './Figure.astro'
+import { formatMs } from '@/lib/chart'
+import type { LogEntry } from '@/data/demo'
+
+interface Props {
+  entries: LogEntry[]
+  /** Rows on screen at once. */
+  rows?: number
+  caption?: string
+  class?: string
+}
+
+const { entries, rows = 9, caption, class: className } = Astro.props
+
+const statusText: Record<number, string> = {
+  200: 'OK',
+  301: 'Moved Permanently',
+  403: 'Forbidden',
+  404: 'Not Found',
+  500: 'Internal Server Error',
+  503: 'Service Unavailable',
+}
+const kb = (bytes: number) => `${(bytes / 1000).toFixed(1)} kB`
+
+// Build-time clock for the static rows: a request every ~0.4s back from
+// 14:32:08, newest first.
+const clock = (i: number) => {
+  const ms = 14 * 3600e3 + 32 * 60e3 + 8000 - i * 437
+  const d = new Date(ms)
+  const pad = (v: number, l = 2) => String(v).padStart(l, '0')
+  return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}.${pad(d.getUTCMilliseconds(), 3)}`
+}
+---
+
+<Figure title="Requests" caption={caption} class={className} bodyClass="">
+  <div slot="aside" class="flex items-center gap-3">
+    <span class="flex items-center gap-2 text-xs" data-log-status>
+      <span class="live-dot size-2 rounded-full border border-ink"></span>
+      <span data-log-state>Live</span>
+    </span>
+    <button
+      type="button"
+      class="btn btn-ghost px-3 py-1 text-xs"
+      aria-pressed="false"
+      data-log-toggle
+      hidden>Pause</button
+    >
+  </div>
+
+  <div data-log>
+    <div
+      class="grid grid-cols-[3.25rem_1fr_3.5rem] gap-3 border-b border-line px-6 py-2 font-mono text-xs text-ink-muted sm:grid-cols-[6.5rem_3.25rem_8.5rem_1fr_3.5rem] sm:px-8"
+      aria-hidden="true"
+    >
+      <span class="max-sm:hidden">Time</span>
+      <span>Status</span>
+      <span class="max-sm:hidden">Agent</span>
+      <span>Path</span>
+      <span class="text-right">Duration</span>
+    </div>
+    <ol
+      class="h-[calc(var(--rows)*(2.5rem+1px))] overflow-hidden font-mono text-xs"
+      style={`--rows: ${rows}`}
+      aria-live="off"
+      data-log-list
+    >
+      {
+        entries.map((entry, i) => (
+          <li class="border-b border-line" hidden={i >= rows} data-log-row>
+            <button
+              type="button"
+              class="grid h-10 w-full grid-cols-[3.25rem_1fr_3.5rem] items-center gap-3 px-6 text-left transition-colors hover:bg-ink/[0.04] sm:grid-cols-[6.5rem_3.25rem_8.5rem_1fr_3.5rem] sm:px-8"
+              aria-expanded="false"
+            >
+              <span
+                class="text-ink-muted tabular-nums max-sm:hidden"
+                data-log-time
+              >
+                {clock(i)}
+              </span>
+              <span
+                class:list={[
+                  'inline-flex w-fit items-center gap-1 rounded-full px-1.5 py-0.5 tabular-nums',
+                  entry.status < 300 && 'bg-ink text-surface',
+                  entry.status >= 300 &&
+                    entry.status < 400 &&
+                    'border border-ink/50',
+                  entry.status >= 400 &&
+                    'border border-line text-ink-muted line-through',
+                ]}
+              >
+                {entry.status}
+                {entry.status >= 300 && entry.status < 400 && (
+                  <Icon name="redirect" size={16} class="-my-1 size-3" />
+                )}
+              </span>
+              <span class="truncate text-ink-muted max-sm:hidden">
+                {entry.agent}
+              </span>
+              <span class="truncate">
+                <span class="text-ink-muted">{entry.method} </span>
+                {entry.path}
+              </span>
+              <span class="text-right text-ink-muted tabular-nums">
+                {formatMs(entry.ms)}
+              </span>
+            </button>
+            <div
+              class="space-y-1 border-t border-line bg-surface px-6 py-4 leading-relaxed text-ink-muted sm:px-8"
+              hidden
+              data-log-detail
+            >
+              <p>
+                <span class="text-ink">
+                  {entry.method} {entry.path}
+                </span>{' '}
+                HTTP/1.1
+              </p>
+              <p>
+                User-Agent:{' '}
+                <span class="text-ink">
+                  Mozilla/5.0 (compatible; {entry.agent})
+                </span>
+              </p>
+              <p class="pt-2">
+                →{' '}
+                <span class="text-ink">
+                  {entry.status} {statusText[entry.status]}
+                </span>{' '}
+                · {kb(entry.bytes)} · {formatMs(entry.ms)}
+              </p>
+              {entry.location && (
+                <p>
+                  Location: <span class="text-ink">{entry.location}</span>
+                </p>
+              )}
+              {entry.rule && (
+                <p class="flex items-center gap-2 pt-2">
+                  <Icon name="robots" size={16} />
+                  Decided by <span class="text-ink">{entry.rule}</span>
+                </p>
+              )}
+            </div>
+          </li>
+        ))
+      }
+    </ol>
+  </div>
+</Figure>
+
+<style>
+  .live-dot {
+    animation: live 1.6s steps(1, end) infinite;
+  }
+  @keyframes live {
+    50% {
+      background-color: var(--color-ink);
+    }
+  }
+  :global([data-log-paused]) .live-dot {
+    animation: none;
+  }
+  :global(.log-enter) {
+    animation: log-enter 0.45s cubic-bezier(0.2, 0, 0, 1);
+  }
+  @keyframes log-enter {
+    from {
+      transform: translateY(-100%);
+      background-color: color-mix(in oklab, var(--color-ink) 10%, transparent);
+    }
+    60% {
+      transform: none;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .live-dot {
+      animation: none;
+    }
+  }
+</style>
+
+<script>
+  import { fresh } from '@/scripts/data/fresh'
+  import { still } from '@/scripts/data/reveal'
+
+  const time = (ago = 0) => {
+    const d = new Date(Date.now() - ago)
+    const pad = (v: number, l = 2) => String(v).padStart(l, '0')
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`
+  }
+
+  for (const root of fresh('[data-log]')) {
+    const figure = root.closest('figure')!
+    const list = root.querySelector<HTMLElement>('[data-log-list]')!
+    const toggle = figure.querySelector<HTMLButtonElement>('[data-log-toggle]')!
+    const state = figure.querySelector<HTMLElement>('[data-log-state]')!
+    // Every row, rendered at build time; the stream recycles them in order.
+    const pool = [...list.querySelectorAll<HTMLElement>('[data-log-row]')]
+    const visible = pool.filter((row) => !row.hidden).length
+
+    for (const row of pool) {
+      const button = row.querySelector('button')!
+      const detail = row.querySelector<HTMLElement>('[data-log-detail]')!
+      button.addEventListener('click', () => {
+        const open = detail.hidden === true
+        detail.hidden = !open
+        button.setAttribute('aria-expanded', String(open))
+        // While any row is open the list grows to fit it, rather than clip.
+        list.classList.toggle(
+          'h-auto',
+          open || !!list.querySelector('[aria-expanded="true"]'),
+        )
+      })
+    }
+
+    if (still) {
+      state.textContent = 'Recent'
+      continue
+    }
+
+    // The rows on screen become the last few seconds, so the clock is real.
+    pool.slice(0, visible).forEach((row, i) => {
+      row.querySelector<HTMLElement>('[data-log-time]')!.textContent = time(
+        (i + 1) * 437,
+      )
+    })
+
+    toggle.hidden = false
+    let next = visible
+    let userPaused = false
+    let hovered = false
+    let onScreen = false
+    let timer: number | undefined
+
+    const paused = () =>
+      userPaused ||
+      hovered ||
+      !onScreen ||
+      document.hidden ||
+      !!list.querySelector('[aria-expanded="true"]')
+
+    const render = () => {
+      const isPaused = paused()
+      state.textContent = isPaused ? 'Paused' : 'Live'
+      if (isPaused) figure.setAttribute('data-log-paused', '')
+      else figure.removeAttribute('data-log-paused')
+    }
+
+    const push = () => {
+      const row = pool[next % pool.length]
+      next++
+      row.querySelector<HTMLElement>('[data-log-time]')!.textContent = time()
+      row.hidden = false
+      row.classList.remove('log-enter')
+      void row.offsetWidth
+      row.classList.add('log-enter')
+      list.prepend(row)
+      // Hide what has scrolled off the bottom.
+      const rows = list.querySelectorAll<HTMLElement>('[data-log-row]')
+      rows.forEach((r, i) => {
+        if (i >= visible) r.hidden = true
+      })
+    }
+
+    const schedule = () => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(
+        () => {
+          if (!paused()) push()
+          render()
+          schedule()
+        },
+        450 + Math.random() * 700,
+      )
+    }
+
+    toggle.addEventListener('click', () => {
+      userPaused = !userPaused
+      toggle.textContent = userPaused ? 'Resume' : 'Pause'
+      toggle.setAttribute('aria-pressed', String(userPaused))
+      render()
+    })
+    list.addEventListener('pointerenter', () => {
+      hovered = true
+      render()
+    })
+    list.addEventListener('pointerleave', () => {
+      hovered = false
+      render()
+    })
+    document.addEventListener('visibilitychange', render)
+    new IntersectionObserver(([entry]) => {
+      onScreen = entry.isIntersecting
+      render()
+    }).observe(list)
+    schedule()
+  }
+</script>

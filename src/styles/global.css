@@ -117,3 +117,81 @@
     background-color: var(--color-night-alt);
   }
 }
+
+/*
+ * Fills for data marks. With no hue to tell categories apart, the fourth and
+ * fifth categories get a texture instead: diagonal hatch, then dots.
+ */
+@utility hatch {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--color-ink) 0 1px,
+    transparent 1px 4px
+  );
+}
+
+@utility dots {
+  background-image: radial-gradient(
+    var(--color-ink) 0.75px,
+    transparent 1.25px
+  );
+  background-size: 4px 4px;
+}
+
+/*
+ * Reveal on scroll. `src/scripts/data/reveal.ts` sets `data-revealed` on a
+ * `[data-reveal]` element once it scrolls into view. Marks start hidden only
+ * when scripts can run and motion is welcome, so nothing is ever stuck
+ * invisible.
+ *
+ * `.draw` strokes a path from start to end (give it `pathLength="1"`);
+ * `.wipe` uncovers a mark left to right, for strokes that can't use `.draw`
+ * because they're `vector-effect="non-scaling-stroke"` (dashes there are in
+ * screen pixels, so `pathLength` doesn't apply);
+ * `.grow-x` / `.grow-y` scale a mark up from its start edge; `.fade` fades.
+ * `--delay` staggers.
+ */
+@media (scripting: enabled) and (prefers-reduced-motion: no-preference) {
+  [data-reveal] .draw {
+    /* Offset just past the length, so the dash's round cap isn't left
+       showing as a dot at the start of the line. */
+    stroke-dasharray: 1 2;
+    stroke-dashoffset: 1.02;
+    transition: stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1)
+      var(--delay, 0ms);
+  }
+  [data-reveal] .wipe {
+    clip-path: inset(-10% 100% -10% 0);
+    transition: clip-path 1.2s cubic-bezier(0.4, 0, 0.2, 1) var(--delay, 0ms);
+  }
+  [data-reveal] .grow-x,
+  [data-reveal] .grow-y {
+    transition: transform 0.7s cubic-bezier(0.2, 0, 0, 1) var(--delay, 0ms);
+    transform-box: fill-box;
+  }
+  [data-reveal] .grow-x {
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+  [data-reveal] .grow-y {
+    transform: scaleY(0);
+    transform-origin: bottom;
+  }
+  [data-reveal] .fade {
+    opacity: 0;
+    transition: opacity 0.6s ease var(--delay, 0ms);
+  }
+  [data-revealed] .draw {
+    stroke-dashoffset: 0;
+  }
+  [data-revealed] .wipe {
+    clip-path: inset(-10% 0 -10% 0);
+  }
+  [data-revealed] .grow-x,
+  [data-revealed] .grow-y {
+    transform: none;
+  }
+  [data-revealed] .fade {
+    opacity: 1;
+  }
+}

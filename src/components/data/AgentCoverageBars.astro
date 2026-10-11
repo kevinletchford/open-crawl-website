@@ -1,0 +1,184 @@
+---
+/**
+ * How much of the site each agent can read: one stacked bar per agent,
+ * sorted best first. Four categories without colour: solid ink, light ink,
+ * hatch, dots.
+ *
+ * Hovering a segment (or its legend entry) keeps that category lit across
+ * every bar, so one category can be compared between agents. The toggle
+ * switches the figures between share and page count.
+ */
+import Figure from './Figure.astro'
+import { formatNumber, formatPct } from '@/lib/chart'
+import type { Coverage } from '@/data/demo'
+
+interface Props {
+  rows: Coverage[]
+  caption?: string
+  class?: string
+}
+
+const { rows, caption, class: className } = Astro.props
+
+const kinds = [
+  { key: 'readable', label: 'Readable', fill: 'bg-ink' },
+  { key: 'partial', label: 'Partial', fill: 'bg-ink/35' },
+  { key: 'blocked', label: 'Blocked', fill: 'hatch opacity-70' },
+  { key: 'error', label: 'Errors', fill: 'dots' },
+] as const
+
+const sorted = [...rows]
+  .map((row) => ({
+    ...row,
+    total: row.readable + row.partial + row.blocked + row.error,
+  }))
+  .sort((a, b) => b.readable / b.total - a.readable / a.total)
+---
+
+<Figure title="What each agent can read" caption={caption} class={className}>
+  <div
+    slot="aside"
+    class="flex gap-1"
+    role="group"
+    aria-label="Show as"
+    data-coverage-mode
+  >
+    <button
+      type="button"
+      class="btn btn-ghost px-3 py-1 text-xs aria-pressed:bg-ink aria-pressed:text-surface"
+      aria-pressed="true"
+      data-mode="pct">%</button
+    >
+    <button
+      type="button"
+      class="btn btn-ghost px-3 py-1 text-xs aria-pressed:bg-ink aria-pressed:text-surface"
+      aria-pressed="false"
+      data-mode="count">Pages</button
+    >
+  </div>
+
+  <div data-coverage>
+    <ul class="flex flex-wrap gap-x-5 gap-y-2 text-xs text-ink-muted">
+      {
+        kinds.map((kind) => (
+          <li
+            class="flex cursor-default items-center gap-2"
+            data-kind={kind.key}
+          >
+            <span
+              class:list={[
+                'size-3 rounded-[3px] border border-line',
+                kind.fill,
+              ]}
+            />
+            {kind.label}
+          </li>
+        ))
+      }
+    </ul>
+
+    <dl class="mt-8 space-y-5">
+      {
+        sorted.map((row, i) => (
+          <div class="grid grid-cols-[8.5rem_1fr_4.5rem] items-center gap-4 max-sm:grid-cols-[1fr_auto]">
+            <dt class="font-mono text-sm max-sm:order-1">{row.agent}</dt>
+            <dd class="max-sm:order-3 max-sm:col-span-2">
+              <div
+                class="grow-x flex h-2.5 gap-px overflow-hidden rounded-full"
+                style={`--delay: ${i * 40}ms`}
+              >
+                {kinds.map((kind) => (
+                  <div
+                    class:list={['h-full transition-opacity', kind.fill]}
+                    style={`width: ${(row[kind.key] / row.total) * 100}%`}
+                    data-kind={kind.key}
+                    data-value={row[kind.key]}
+                    data-share={formatPct((row[kind.key] / row.total) * 100, 1)}
+                    data-agent={row.agent}
+                    data-label={kind.label}
+                  />
+                ))}
+              </div>
+            </dd>
+            <dd class="text-right text-sm font-semibold tabular-nums max-sm:order-2">
+              <span data-show="pct">
+                {formatPct((row.readable / row.total) * 100, 1)}
+              </span>
+              <span data-show="count" hidden>
+                {formatNumber(row.readable)}
+              </span>
+              <span class="sr-only">
+                readable.{' '}
+                {kinds
+                  .slice(1)
+                  .map((k) => `${k.label}: ${formatNumber(row[k.key])}`)
+                  .join(', ')}
+                .
+              </span>
+            </dd>
+          </div>
+        ))
+      }
+    </dl>
+    <p
+      class="mt-6 h-4 text-xs text-ink-muted tabular-nums"
+      data-coverage-readout
+    >
+      Hover a segment to compare it across agents.
+    </p>
+  </div>
+</Figure>
+
+<style>
+  [data-coverage][data-focus] [data-value] {
+    opacity: 0.15;
+  }
+  [data-coverage][data-focus='readable'] [data-value][data-kind='readable'],
+  [data-coverage][data-focus='partial'] [data-value][data-kind='partial'],
+  [data-coverage][data-focus='blocked'] [data-value][data-kind='blocked'],
+  [data-coverage][data-focus='error'] [data-value][data-kind='error'] {
+    opacity: 1;
+  }
+</style>
+
+<script>
+  import { fresh } from '@/scripts/data/fresh'
+  import { formatNumber } from '@/lib/chart'
+
+  for (const root of fresh('[data-coverage]')) {
+    const figure = root.closest('figure')!
+    const readout = root.querySelector<HTMLElement>('[data-coverage-readout]')!
+    const resting = readout.textContent
+
+    const focus = (kind?: string) => {
+      if (kind) root.dataset.focus = kind
+      else delete root.dataset.focus
+    }
+
+    for (const segment of root.querySelectorAll<HTMLElement>('[data-value]')) {
+      segment.addEventListener('pointerenter', () => {
+        focus(segment.dataset.kind)
+        readout.textContent = `${segment.dataset.agent} · ${segment.dataset.label} · ${formatNumber(Number(segment.dataset.value))} pages · ${segment.dataset.share}`
+      })
+    }
+    for (const entry of root.querySelectorAll<HTMLElement>('li[data-kind]')) {
+      entry.addEventListener('pointerenter', () => focus(entry.dataset.kind))
+      entry.addEventListener('pointerleave', () => focus())
+    }
+    root.querySelector('dl')!.addEventListener('pointerleave', () => {
+      focus()
+      readout.textContent = resting
+    })
+
+    const modes = [...figure.querySelectorAll<HTMLButtonElement>('[data-mode]')]
+    for (const mode of modes) {
+      mode.addEventListener('click', () => {
+        for (const m of modes)
+          m.setAttribute('aria-pressed', String(m === mode))
+        for (const value of root.querySelectorAll<HTMLElement>('[data-show]')) {
+          value.hidden = value.dataset.show !== mode.dataset.mode
+        }
+      })
+    }
+  }
+</script>

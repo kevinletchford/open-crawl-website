@@ -1,0 +1,230 @@
+---
+/**
+ * What disappears without JavaScript, on one page. The page is drawn twice,
+ * stacked: as a browser renders it, and as a non-JS crawler fetches it,
+ * where script-rendered blocks are only dashed, hatched outlines. A divider
+ * splits the two; drag it (or use the arrow keys) to compare.
+ *
+ * On first view the divider sweeps across once, so the difference is seen
+ * before anyone touches it. Hovering a missing block names it and the
+ * script that renders it.
+ */
+import Icon from '@/components/Icon.astro'
+import Figure from './Figure.astro'
+import { formatNumber } from '@/lib/chart'
+import type { RenderBlock } from '@/data/demo'
+
+interface Props {
+  path: string
+  agent?: string
+  blocks: RenderBlock[]
+  wordsMissing: number
+  caption?: string
+  class?: string
+}
+
+const {
+  path,
+  agent = 'GPTBot',
+  blocks,
+  wordsMissing,
+  caption,
+  class: className,
+} = Astro.props
+
+const missing = blocks.filter((b) => b.jsOnly).length
+const fill = {
+  heading: 'bg-ink/80',
+  text: 'bg-ink/25',
+  media: 'bg-ink/45',
+  table: 'bg-ink/15',
+}
+const restingText =
+  'Drag the divider to compare. Hover a dashed block to name it.'
+---
+
+<Figure title="Render diff" caption={caption} class={className}>
+  <p slot="aside" class="text-xs text-ink-muted">
+    <span class="font-medium text-ink">{missing} of {blocks.length} blocks</span
+    >{' '}missing · {formatNumber(wordsMissing)} words
+  </p>
+
+  <div data-diff>
+    <div class="mb-3 flex justify-between text-xs text-ink-muted">
+      <span class="flex items-center gap-2">
+        <Icon name="render" size={16} class="text-ink" />Browser
+      </span>
+      <span class="flex items-center gap-2">
+        <span><span class="font-mono">{agent}</span> · raw HTML</span>
+        <Icon name="raw-html" size={16} class="text-ink" />
+      </span>
+    </div>
+
+    <div
+      class="relative cursor-ew-resize touch-pan-y overflow-hidden rounded-xl border border-line select-none"
+      data-diff-stage
+    >
+      <div
+        class="flex items-center gap-2 border-b border-line px-4 py-2.5"
+        aria-hidden="true"
+      >
+        <span class="size-2 rounded-full bg-ink/25"></span>
+        <span class="size-2 rounded-full bg-ink/25"></span>
+        <span class="size-2 rounded-full bg-ink/25"></span>
+        <span class="ml-3 font-mono text-xs text-ink-muted">{path}</span>
+      </div>
+
+      <div class="relative">
+        {
+          (['browser', 'raw'] as const).map((layer) => (
+            <div
+              class:list={[
+                'flex flex-wrap content-start gap-x-[4%] gap-y-3 p-6 sm:p-8',
+                layer === 'raw' && 'absolute inset-0 bg-surface',
+              ]}
+              data-layer={layer}
+              aria-hidden={layer === 'raw' ? 'true' : undefined}
+            >
+              {blocks.map((block) => {
+                const gone = layer === 'raw' && block.jsOnly
+                return (
+                  <div
+                    class:list={[
+                      'relative rounded',
+                      gone
+                        ? 'border border-dashed border-ink/45'
+                        : fill[block.kind],
+                    ]}
+                    style={`width: ${block.w === 1 ? 100 : block.w * 100}%; height: ${block.h}rem`}
+                    data-label={gone ? block.label : undefined}
+                    data-source={gone ? block.source : undefined}
+                  >
+                    {gone && (
+                      <div class="hatch absolute inset-0 rounded opacity-20" />
+                    )}
+                    {block.kind === 'table' && !gone && (
+                      <div class="absolute inset-x-3 top-3 bottom-3 bg-[repeating-linear-gradient(to_bottom,var(--color-line)_0_1px,transparent_1px_1.25rem)]" />
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          ))
+        }
+      </div>
+
+      <div class="absolute inset-y-0 left-1/2 w-px bg-ink" data-diff-divider>
+        <span
+          class="absolute top-1/2 left-0 grid size-8 -translate-1/2 place-items-center rounded-full border border-ink bg-surface text-xs outline-none focus-visible:ring-2 focus-visible:ring-ink/50"
+          role="slider"
+          tabindex="0"
+          aria-label="Divider between browser and raw HTML"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-valuenow="50"
+          aria-valuetext="Half and half"
+          data-diff-handle
+        >
+          <span aria-hidden="true">↔</span>
+        </span>
+      </div>
+    </div>
+
+    <p class="mt-4 h-4 text-xs text-ink-muted" data-diff-readout>
+      {restingText}
+    </p>
+    <ul class="sr-only">
+      {
+        blocks
+          .filter((b) => b.jsOnly)
+          .map((b) => (
+            <li>
+              Missing without JavaScript: {b.label}, rendered by {b.source}
+            </li>
+          ))
+      }
+    </ul>
+  </div>
+</Figure>
+
+<script>
+  import { fresh } from '@/scripts/data/fresh'
+  import { onReveal, still } from '@/scripts/data/reveal'
+
+  for (const root of fresh('[data-diff]')) {
+    const stage = root.querySelector<HTMLElement>('[data-diff-stage]')!
+    const raw = root.querySelector<HTMLElement>('[data-layer="raw"]')!
+    const divider = root.querySelector<HTMLElement>('[data-diff-divider]')!
+    const handle = root.querySelector<HTMLElement>('[data-diff-handle]')!
+    const readout = root.querySelector<HTMLElement>('[data-diff-readout]')!
+    const resting = readout.textContent
+    let position = 50
+
+    const set = (pct: number) => {
+      position = Math.max(0, Math.min(100, pct))
+      divider.style.left = `${position}%`
+      raw.style.clipPath = `inset(0 0 0 ${position}%)`
+      handle.setAttribute('aria-valuenow', String(Math.round(position)))
+      handle.setAttribute(
+        'aria-valuetext',
+        `${Math.round(position)}% browser, ${Math.round(100 - position)}% raw HTML`,
+      )
+    }
+    set(50)
+
+    const fromPointer = (event: PointerEvent) => {
+      const box = stage.getBoundingClientRect()
+      set(((event.clientX - box.left) / box.width) * 100)
+    }
+    stage.addEventListener('pointerdown', (event) => {
+      stage.setPointerCapture(event.pointerId)
+      fromPointer(event)
+    })
+    stage.addEventListener('pointermove', (event) => {
+      if (stage.hasPointerCapture(event.pointerId)) fromPointer(event)
+    })
+    handle.addEventListener('keydown', (event) => {
+      const step = event.shiftKey ? 10 : 2
+      if (event.key === 'ArrowLeft') set(position - step)
+      else if (event.key === 'ArrowRight') set(position + step)
+      else if (event.key === 'Home') set(0)
+      else if (event.key === 'End') set(100)
+      else return
+      event.preventDefault()
+    })
+
+    for (const block of raw.querySelectorAll<HTMLElement>('[data-label]')) {
+      block.addEventListener('pointerenter', () => {
+        readout.textContent = `${block.dataset.label} · rendered by ${block.dataset.source}`
+      })
+      block.addEventListener('pointerleave', () => {
+        readout.textContent = resting
+      })
+    }
+
+    // One sweep on first view: browser side to raw side and back to centre.
+    if (!still) {
+      set(92)
+      onReveal(root.closest<HTMLElement>('[data-reveal]')!, () => {
+        const keys = [
+          [0, 92],
+          [900, 8],
+          [1500, 50],
+        ]
+        const start = performance.now()
+        const ease = (t: number) =>
+          t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2
+        const tick = (now: number) => {
+          const t = now - start
+          const i = keys.findIndex(([at]) => at > t)
+          if (i === -1) return set(50)
+          const [t0, p0] = keys[i - 1]
+          const [t1, p1] = keys[i]
+          set(p0 + (p1 - p0) * ease((t - t0) / (t1 - t0)))
+          requestAnimationFrame(tick)
+        }
+        requestAnimationFrame(tick)
+      })
+    }
+  }
+</script>

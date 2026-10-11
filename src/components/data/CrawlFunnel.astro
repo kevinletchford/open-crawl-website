@@ -1,0 +1,214 @@
+---
+/**
+ * Where pages drop out of a crawl, as a Sankey: the main stream runs from
+ * discovered to readable along the top, and each stage's losses peel off
+ * downward in hatch, ending at a labelled node.
+ *
+ * The box keeps a fixed aspect ratio, so labels positioned in percentages
+ * line up with the SVG at any width; on narrow screens it scrolls sideways
+ * rather than squashing. Hovering a band dims the rest and reads it out.
+ */
+import Icon from '@/components/Icon.astro'
+import Figure from './Figure.astro'
+import { formatNumber, formatPct } from '@/lib/chart'
+import { layoutFunnel } from '@/lib/sankey'
+import type { FunnelLoss, FunnelStage } from '@/data/demo'
+
+interface Props {
+  stages: FunnelStage[]
+  losses: FunnelLoss[]
+  /** Where loss labels link to, e.g. the list of fixes. */
+  fixesHref?: string
+  caption?: string
+  class?: string
+}
+
+const { stages, losses, fixesHref, caption, class: className } = Astro.props
+
+const layout = layoutFunnel({ stages, losses })
+const { width: W, height: H } = layout
+const total = stages[0].value
+const share = (value: number) => formatPct((value / total) * 100)
+const x = (v: number) => `${(v / W) * 100}%`
+const y = (v: number) => `${(v / H) * 100}%`
+const hatchId = `funnel-hatch-${Math.random().toString(36).slice(2, 8)}`
+
+const label = (id: string) =>
+  stages.find((s) => s.id === id)?.label ??
+  losses.find((l) => l.id === id)?.label ??
+  id
+const bandText = layout.bands.map((band) => {
+  if (band.kind === 'loss') {
+    const loss = losses.find((l) => l.id === band.id)!
+    return `${label(loss.from)} → ${loss.label}`
+  }
+  const [from, to] = band.id.split('-')
+  return `${label(from)} → ${label(to)}`
+})
+---
+
+<Figure title="Where pages drop out" caption={caption} class={className}>
+  <p slot="aside" class="text-xs text-ink-muted">
+    <span class="font-medium text-ink">{share(stages.at(-1)!.value)}</span> of discovered
+    pages end up readable
+  </p>
+
+  <div
+    class="-mx-6 overflow-x-auto px-6 sm:-mx-8 sm:px-8"
+    data-funnel
+    data-total={total}
+  >
+    <div class="relative min-w-[44rem]" style={`aspect-ratio: ${W} / ${H}`}>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        class="funnel absolute inset-0 h-full w-full"
+        role="img"
+        aria-label={`Of ${formatNumber(total)} pages discovered, ${formatNumber(stages.at(-1)!.value)} are readable. Losses: ${losses.map((l) => `${l.label} ${formatNumber(l.value)}`).join(', ')}.`}
+      >
+        <defs>
+          <pattern
+            id={hatchId}
+            width="6"
+            height="6"
+            patternUnits="userSpaceOnUse"
+            patternTransform="rotate(45)"
+          >
+            <line
+              x1="0"
+              y1="0"
+              x2="0"
+              y2="6"
+              class="stroke-ink/45"
+              stroke-width="1.5"></line>
+          </pattern>
+        </defs>
+        {
+          layout.bands.map((band, i) => (
+            <path
+              d={band.d}
+              class:list={[
+                'band grow-x',
+                band.kind === 'main' ? 'fill-ink/15' : '',
+              ]}
+              fill={band.kind === 'loss' ? `url(#${hatchId})` : undefined}
+              style={`--delay: ${band.column * 180}ms`}
+              data-band-label={bandText[i]}
+              data-band-value={band.value}
+            />
+          ))
+        }
+        {
+          layout.stages.map((rect) => (
+            <rect
+              x={rect.x}
+              y={rect.y}
+              width={rect.w}
+              height={rect.h}
+              class="fill-ink"
+              rx="1"
+            />
+          ))
+        }
+        {
+          layout.losses.map((rect) => (
+            <rect
+              x={rect.x}
+              y={rect.y}
+              width={rect.w}
+              height={rect.h}
+              rx="1"
+              class="fill-surface stroke-ink"
+              stroke-width="1.5"
+            />
+          ))
+        }
+      </svg>
+
+      {
+        layout.stages.map((rect, i) => {
+          const stage = stages[i]
+          const last = i === stages.length - 1
+          return (
+            <div
+              class:list={[
+                'pointer-events-none absolute whitespace-nowrap',
+                last && '-translate-x-full text-right',
+              ]}
+              style={`left: ${x(last ? rect.x + rect.w : rect.x)}; bottom: ${y(H - rect.y + 10)}`}
+            >
+              <p class="text-xs text-ink-muted">{stage.label}</p>
+              <p class="text-sm font-medium tabular-nums">
+                {formatNumber(stage.value)}
+                <span class="font-normal text-ink-muted">
+                  {' '}
+                  {share(stage.value)}
+                </span>
+              </p>
+            </div>
+          )
+        })
+      }
+      {
+        layout.losses.map((rect) => {
+          const loss = losses.find((l) => l.id === rect.id)!
+          const Tag = fixesHref ? 'a' : 'div'
+          return (
+            <Tag
+              href={fixesHref}
+              class:list={[
+                'absolute flex -translate-x-1/2 flex-col items-center text-center',
+                fixesHref && 'rounded-md px-2 py-1 hover:bg-surface-alt',
+              ]}
+              style={`left: ${x(rect.x + rect.w / 2)}; top: ${y(rect.y + rect.h + 6)}`}
+            >
+              <Icon name={loss.icon} size={16} class="text-ink-muted" />
+              <span class="mt-1 text-xs whitespace-nowrap">{loss.label}</span>
+              <span class="text-xs text-ink-muted tabular-nums">
+                {formatNumber(loss.value)} · {share(loss.value)}
+              </span>
+            </Tag>
+          )
+        })
+      }
+    </div>
+  </div>
+  <p class="mt-4 h-4 text-xs text-ink-muted tabular-nums" data-funnel-readout>
+    Hover a band to read it.
+  </p>
+</Figure>
+
+<style>
+  .funnel .band {
+    transition:
+      opacity 0.2s,
+      transform 0.7s cubic-bezier(0.2, 0, 0, 1) var(--delay, 0ms);
+  }
+  .funnel:has(.band:hover) .band:not(:hover) {
+    opacity: 0.35;
+  }
+  .funnel .band.fill-ink\/15:hover {
+    fill: color-mix(in oklab, var(--color-ink) 30%, transparent);
+  }
+</style>
+
+<script>
+  import { fresh } from '@/scripts/data/fresh'
+  import { formatNumber } from '@/lib/chart'
+
+  for (const root of fresh('[data-funnel]')) {
+    const readout = root.parentElement!.querySelector<HTMLElement>(
+      '[data-funnel-readout]',
+    )!
+    const bands = root.querySelectorAll<SVGPathElement>('[data-band-label]')
+    const discovered = Number(root.dataset.total)
+    for (const band of bands) {
+      band.addEventListener('pointerenter', () => {
+        const value = Number(band.dataset.bandValue)
+        readout.textContent = `${band.dataset.bandLabel} · ${formatNumber(value)} pages · ${Math.round((value / discovered) * 100)}% of discovered`
+      })
+      band.addEventListener('pointerleave', () => {
+        readout.textContent = 'Hover a band to read it.'
+      })
+    }
+  }
+</script>

@@ -9,8 +9,12 @@ export default defineConfig({
   site: SITE_URL,
   integrations: [
     mdx(),
-    // The thank-you page is only reached by submitting the invite form.
-    sitemap({ filter: (page) => !page.includes('/invite/thanks') }),
+    // The thank-you page is only reached by submitting the invite form, and
+    // /system is an internal catalogue of the design system.
+    sitemap({
+      filter: (page) =>
+        !page.includes('/invite/thanks') && !page.includes('/system'),
+    }),
   ],
   vite: {
     plugins: [tailwindcss()],

@@ -1,0 +1,236 @@
+---
+/**
+ * One page's AI readability score and why: a ring split into one arc per
+ * sub-score (arc length ∝ its weight, separated by gaps like the logo's
+ * rings), each filled to its value. The bars beside it repeat the
+ * sub-scores; hovering either one lights the other.
+ *
+ * Hovering a fix draws, dotted, how far its arc would grow, and shows the
+ * score it would give.
+ */
+import Figure from './Figure.astro'
+import { polar } from '@/lib/maze/svg'
+
+interface Part {
+  label: string
+  value: number
+  weight: number
+}
+
+interface Props {
+  path: string
+  score: number
+  previous: number
+  parts: Part[]
+  fixes: { title: string; part: number; gain: number }[]
+  caption?: string
+  id?: string
+  class?: string
+}
+
+const {
+  path,
+  score,
+  previous,
+  parts,
+  fixes,
+  caption,
+  id,
+  class: className,
+} = Astro.props
+
+const R = 52
+const GAP = (6 / 360) * Math.PI * 2
+const TAU = Math.PI * 2
+
+const arc = (a0: number, a1: number) => {
+  if (a1 - a0 <= 0) return ''
+  const [x0, y0] = polar(R, a0)
+  const [x1, y1] = polar(R, a1)
+  return `M${x0} ${y0}A${R} ${R} 0 ${a1 - a0 > Math.PI ? 1 : 0} 1 ${x1} ${y1}`
+}
+
+let start = 0
+const arcs = parts.map((part) => {
+  const span = part.weight * TAU
+  const a0 = start + GAP / 2
+  const a1 = start + span - GAP / 2
+  start += span
+  const at = (value: number) => a0 + ((a1 - a0) * Math.min(100, value)) / 100
+  return {
+    track: arc(a0, a1),
+    value: arc(a0, at(part.value)),
+    // What each fix aimed at this part would add, as a dotted extension.
+    ghosts: fixes.map((fix) =>
+      fix.part === parts.indexOf(part)
+        ? arc(at(part.value), at(part.value + fix.gain / part.weight))
+        : '',
+    ),
+  }
+})
+const change = score - previous
+---
+
+<Figure
+  title="AI readability"
+  caption={caption}
+  id={id}
+  class={className}
+  bodyClass=""
+>
+  <p slot="aside" class="font-mono text-xs text-ink-muted">{path}</p>
+
+  <div data-score>
+    <div class="grid items-center gap-8 p-6 sm:grid-cols-[11rem_1fr] sm:p-8">
+      <div class="relative mx-auto size-44">
+        <svg
+          viewBox="-64 -64 128 128"
+          class="size-full"
+          fill="none"
+          stroke-width="9"
+          aria-hidden="true"
+        >
+          {
+            arcs.map((a, i) => (
+              <g data-part={i} class="transition-opacity">
+                <path d={a.track} class="stroke-line" />
+                <path
+                  d={a.value}
+                  pathLength="1"
+                  class="draw stroke-ink"
+                  style={`--delay: ${i * 150}ms`}
+                />
+                {a.ghosts.map(
+                  (ghost, fix) =>
+                    ghost && (
+                      <path
+                        d={ghost}
+                        class="stroke-ink/60 opacity-0 transition-opacity"
+                        stroke-dasharray="1.5 2.5"
+                        data-ghost={fix}
+                      />
+                    ),
+                )}
+              </g>
+            ))
+          }
+        </svg>
+        <div class="absolute inset-0 grid place-content-center text-center">
+          <p class="text-4xl font-semibold tracking-tight tabular-nums">
+            <span data-count={score} data-format="score" data-score-value
+              >{score}</span
+            >
+          </p>
+          <p class="text-xs text-ink-muted tabular-nums" data-score-delta>
+            {change >= 0 ? '+' : '−'}{Math.abs(change)} since last crawl
+          </p>
+        </div>
+      </div>
+
+      <dl class="space-y-4">
+        {
+          parts.map((part, i) => (
+            <div class="transition-opacity" data-part={i}>
+              <div class="flex justify-between text-sm">
+                <dt>
+                  {part.label}
+                  <span class="text-xs text-ink-muted">
+                    {' '}
+                    × {Math.round(part.weight * 100)}%
+                  </span>
+                </dt>
+                <dd class="font-mono text-ink-muted">{part.value}</dd>
+              </div>
+              <div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-line">
+                <div
+                  class="grow-x h-full rounded-full bg-ink"
+                  style={`width: ${part.value}%; --delay: ${i * 150}ms`}
+                />
+              </div>
+            </div>
+          ))
+        }
+      </dl>
+    </div>
+
+    <div class="border-t border-line px-6 py-5 sm:px-8">
+      <p class="text-sm font-medium">Top fixes</p>
+      <ol class="mt-3 divide-y divide-line">
+        {
+          fixes.map((fix, i) => (
+            <li>
+              <button
+                type="button"
+                class="flex w-full cursor-default items-baseline justify-between gap-4 py-2.5 text-left text-sm"
+                data-fix={i}
+                data-fix-part={fix.part}
+                data-gain={fix.gain}
+              >
+                <span>
+                  <span class="mr-2 font-mono text-xs text-ink-muted">
+                    {i + 1}
+                  </span>
+                  {fix.title}
+                  <span class="text-xs text-ink-muted">
+                    {' '}
+                    · {parts[fix.part].label}
+                  </span>
+                </span>
+                <span class="font-mono text-xs tabular-nums">+{fix.gain}</span>
+              </button>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </div>
+</Figure>
+
+<script>
+  import { fresh } from '@/scripts/data/fresh'
+  import { countUp } from '@/scripts/data/count'
+
+  countUp()
+
+  for (const root of fresh('[data-score]')) {
+    const parts = [...root.querySelectorAll<HTMLElement>('[data-part]')]
+    const value = root.querySelector<HTMLElement>('[data-score-value]')!
+    const deltaEl = root.querySelector<HTMLElement>('[data-score-delta]')!
+    const score = Number(value.dataset.count)
+    const resting = deltaEl.textContent
+
+    // Light one sub-score (its arc and its bar) and dim the rest.
+    const light = (part?: string) => {
+      for (const el of parts) {
+        el.style.opacity =
+          part === undefined || el.dataset.part === part ? '' : '0.3'
+      }
+    }
+    for (const el of parts) {
+      el.addEventListener('pointerenter', () => light(el.dataset.part))
+      el.addEventListener('pointerleave', () => light())
+    }
+
+    for (const fix of root.querySelectorAll<HTMLElement>('[data-fix]')) {
+      const ghost = root.querySelector<SVGElement>(
+        `[data-ghost="${fix.dataset.fix}"]`,
+      )
+      const show = () => {
+        light(fix.dataset.fixPart)
+        ghost?.classList.replace('opacity-0', 'opacity-100')
+        value.textContent = String(score + Number(fix.dataset.gain))
+        deltaEl.textContent = `+${fix.dataset.gain} with this fix`
+      }
+      const hide = () => {
+        light()
+        ghost?.classList.replace('opacity-100', 'opacity-0')
+        value.textContent = String(score)
+        deltaEl.textContent = resting
+      }
+      fix.addEventListener('pointerenter', show)
+      fix.addEventListener('focus', show)
+      fix.addEventListener('pointerleave', hide)
+      fix.addEventListener('blur', hide)
+    }
+  }
+</script>

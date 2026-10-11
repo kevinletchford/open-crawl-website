@@ -1,0 +1,69 @@
+---
+/**
+ * The card every data component sits in: a bordered figure with an optional
+ * header (title on the left, a value or controls on the right via the
+ * `aside` slot) and a caption naming where the data came from.
+ *
+ * `data-reveal` is set here, so anything inside can use the reveal-on-scroll
+ * classes in `global.css` (`draw`, `grow-x`, `grow-y`, `fade`).
+ */
+
+interface Props {
+  title?: string
+  /** Shown in the footer: "Illustrative example", or the real source. */
+  caption?: string
+  /** Darker card for use on light bands; matches the request log. */
+  tone?: 'surface' | 'alt'
+  /** Classes for the body (padding defaults to p-6 sm:p-8). */
+  bodyClass?: string
+  class?: string
+  id?: string
+}
+
+const {
+  title,
+  caption = 'Illustrative example',
+  tone = 'surface',
+  bodyClass = 'p-6 sm:p-8',
+  class: className,
+  id,
+} = Astro.props
+const hasHeader = title || Astro.slots.has('aside')
+---
+
+<figure
+  id={id}
+  class:list={[
+    'overflow-hidden rounded-card border border-line',
+    tone === 'alt' ? 'bg-surface-alt' : 'bg-surface',
+    className,
+  ]}
+  data-reveal
+>
+  {
+    hasHeader && (
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-line px-6 py-4 sm:px-8">
+        {title && <p class="text-sm font-medium">{title}</p>}
+        <slot name="aside" />
+      </div>
+    )
+  }
+  <div class={bodyClass}>
+    <slot />
+  </div>
+  {
+    caption && (
+      <figcaption class="border-t border-line px-6 py-3 text-xs text-ink-muted sm:px-8">
+        {caption}
+      </figcaption>
+    )
+  }
+</figure>
+
+<script>
+  import { scan } from '@/scripts/data/reveal'
+
+  // A microtask, so component scripts can register `onReveal` callbacks
+  // before anything is revealed.
+  queueMicrotask(scan)
+</script>

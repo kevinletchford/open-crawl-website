@@ -1,0 +1,167 @@
+---
+/**
+ * Internal catalogue of the icon set and data components: the review surface
+ * for the design system. Not linked from the nav, and kept out of search.
+ */
+import Icon from '@/components/Icon.astro'
+import Section from '@/components/Section.astro'
+import AgentAccessMatrix from '@/components/data/AgentAccessMatrix.astro'
+import AgentCoverageBars from '@/components/data/AgentCoverageBars.astro'
+import CrawlFunnel from '@/components/data/CrawlFunnel.astro'
+import CrawlProgressChart from '@/components/data/CrawlProgressChart.astro'
+import LatencyHistogram from '@/components/data/LatencyHistogram.astro'
+import MetricStrip from '@/components/data/MetricStrip.astro'
+import ReadabilityScore from '@/components/data/ReadabilityScore.astro'
+import RenderDiff from '@/components/data/RenderDiff.astro'
+import RequestLog from '@/components/data/RequestLog.astro'
+import SiteMaze from '@/components/data/SiteMaze.astro'
+import {
+  ACCESS,
+  AGENTS,
+  COVERAGE,
+  FUNNEL,
+  LATENCY,
+  LOG,
+  METRICS,
+  PROGRESS,
+  READABILITY,
+  RENDER,
+} from '@/data/demo'
+import { ICON_NAMES, ICONS } from '@/lib/icons'
+import BaseLayout from '@/layouts/BaseLayout.astro'
+
+const sizes = [16, 20, 24] as const
+---
+
+<BaseLayout
+  title="System"
+  description="The OpenCrawl icon set and data components."
+>
+  <meta slot="head" name="robots" content="noindex" />
+
+  <Section innerClass="pt-20 pb-12 sm:pt-28">
+    <h1 class="text-5xl font-semibold tracking-tight text-balance">
+      Icons and data components
+    </h1>
+    <p class="mt-6 max-w-2xl text-lg text-ink-muted">
+      Twenty icons for what the crawler does, and ten ways to show what it
+      found. All monochrome: status is carried by fill, outline and strike,
+      never colour.
+    </p>
+  </Section>
+
+  <Section tone="alt" innerClass="py-16">
+    <h2 class="text-3xl font-semibold tracking-tight">Icons</h2>
+    <p class="mt-4 max-w-2xl text-ink-muted">
+      24px grid, 1.5px stroke (1.75px at 16px), drawn from the logo’s rings and
+      gaps. Outline is the default; solid marks the selected or active state.
+    </p>
+    <ul
+      class="mt-10 grid gap-px overflow-hidden rounded-card border border-line bg-line sm:grid-cols-2 lg:grid-cols-4"
+    >
+      {
+        ICON_NAMES.map((name) => (
+          <li class="flex flex-col gap-5 bg-surface p-5">
+            <div class="flex items-end gap-4">
+              {sizes.map((size) => (
+                <Icon name={name} size={size} />
+              ))}
+              <span class="h-6 w-px bg-line" />
+              <Icon name={name} size={24} variant="solid" />
+            </div>
+            <div>
+              <p class="font-mono text-sm">{name}</p>
+              <p class="mt-1 text-xs text-ink-muted">{ICONS[name].meaning}</p>
+            </div>
+          </li>
+        ))
+      }
+    </ul>
+  </Section>
+
+  <Section innerClass="py-16">
+    <h2 class="text-3xl font-semibold tracking-tight">Metric strip</h2>
+    <p class="mt-4 max-w-2xl text-ink-muted">
+      The four numbers that sum up a crawl. Hover a sparkline to read an earlier
+      crawl.
+    </p>
+    <MetricStrip metrics={METRICS} class="mt-10" />
+  </Section>
+
+  <Section tone="alt" innerClass="py-16">
+    <h2 class="text-3xl font-semibold tracking-tight">Crawl progress</h2>
+    <p class="mt-4 max-w-2xl text-ink-muted">
+      Pages discovered and fetched against the last crawl. Hover, or focus and
+      use the arrow keys, to move the crosshair.
+    </p>
+    <CrawlProgressChart {...PROGRESS} class="mt-10" />
+  </Section>
+
+  <Section innerClass="py-16">
+    <h2 class="text-3xl font-semibold tracking-tight">Response time</h2>
+    <p class="mt-4 max-w-2xl text-ink-muted">
+      Latency distribution with percentiles. Switch agents to see the
+      distribution move.
+    </p>
+    <LatencyHistogram series={LATENCY} class="mt-10" />
+  </Section>
+
+  <Section tone="alt" innerClass="py-16">
+    <h2 class="text-3xl font-semibold tracking-tight">Crawl funnel</h2>
+    <p class="mt-4 max-w-2xl text-ink-muted">
+      Where pages drop out between discovery and being readable. Hover a band to
+      read it.
+    </p>
+    <CrawlFunnel {...FUNNEL} fixesHref="#readability" class="mt-10" />
+  </Section>
+
+  <Section innerClass="py-16">
+    <h2 class="text-3xl font-semibold tracking-tight">Agent access</h2>
+    <p class="mt-4 max-w-2xl text-ink-muted">
+      Paths by agent. Hover or focus a cell for the rule that decided it.
+    </p>
+    <AgentAccessMatrix agents={AGENTS} rows={ACCESS} class="mt-10" />
+  </Section>
+
+  <Section tone="alt" innerClass="py-16">
+    <h2 class="text-3xl font-semibold tracking-tight">Agent coverage</h2>
+    <p class="mt-4 max-w-2xl text-ink-muted">
+      How much of the site each agent can read. Hover a segment to compare one
+      category across agents.
+    </p>
+    <AgentCoverageBars rows={COVERAGE} class="mt-10" />
+  </Section>
+
+  <Section innerClass="py-16">
+    <h2 class="text-3xl font-semibold tracking-tight">Readability score</h2>
+    <p class="mt-4 max-w-2xl text-ink-muted">
+      One page’s score and the fixes that would raise it. Hover a fix to see its
+      effect.
+    </p>
+    <ReadabilityScore {...READABILITY} id="readability" class="mt-10" />
+  </Section>
+
+  <Section tone="alt" innerClass="py-16">
+    <h2 class="text-3xl font-semibold tracking-tight">Render diff</h2>
+    <p class="mt-4 max-w-2xl text-ink-muted">
+      Browser against raw HTML. Drag the divider.
+    </p>
+    <RenderDiff {...RENDER} class="mt-10" />
+  </Section>
+
+  <Section innerClass="py-16">
+    <h2 class="text-3xl font-semibold tracking-tight">Request log</h2>
+    <p class="mt-4 max-w-2xl text-ink-muted">
+      The crawler’s requests as they happen. Click a row to open it.
+    </p>
+    <RequestLog entries={LOG} class="mt-10" />
+  </Section>
+
+  <Section tone="alt" innerClass="py-16">
+    <h2 class="text-3xl font-semibold tracking-tight">Site maze</h2>
+    <p class="mt-4 max-w-2xl text-ink-muted">
+      Each agent’s crawl flooding the site. Hover a page for its route home.
+    </p>
+    <SiteMaze class="mt-10" />
+  </Section>
+</BaseLayout>
