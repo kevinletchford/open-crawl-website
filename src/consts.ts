@@ -12,7 +12,7 @@ export const SITE_URL = 'https://open-crawl.com'
 export const SITE_TITLE = 'OpenCrawl'
 
 export const SITE_DESCRIPTION =
-  'OpenCrawl crawls your site the way AI crawlers and answer engines do, and shows you what they can and can’t see.'
+  'OpenCrawl crawls your site the way AI crawlers and answer engines do, and shows you what they can and can’t reach and read.'
 
 /** Twitter/X handle used for `twitter:site` card attribution. */
 export const SITE_TWITTER = '@opencrawl'

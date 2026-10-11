@@ -9,20 +9,22 @@ import { SITE_DESCRIPTION } from '@/consts'
 import { SYNTHETIC } from '@/data/benchmarks'
 import BaseLayout from '@/layouts/BaseLayout.astro'
 
-// Real user-agent tokens of the AI crawlers and assistants OpenCrawl emulates.
+// Real robots.txt tokens of the AI crawlers and assistants OpenCrawl checks.
+// `tokenOnly` marks robots.txt controls with no crawler of their own: Googlebot
+// and Applebot do the fetching, and these tokens only govern AI use.
 const agents = [
-  'GPTBot',
-  'OAI-SearchBot',
-  'ChatGPT-User',
-  'ClaudeBot',
-  'Claude-User',
-  'PerplexityBot',
-  'Google-Extended',
-  'Applebot-Extended',
-  'Meta-ExternalAgent',
-  'Amazonbot',
-  'CCBot',
-  'Bytespider',
+  { name: 'GPTBot' },
+  { name: 'OAI-SearchBot' },
+  { name: 'ChatGPT-User' },
+  { name: 'ClaudeBot' },
+  { name: 'Claude-User' },
+  { name: 'PerplexityBot' },
+  { name: 'Google-Extended', tokenOnly: true },
+  { name: 'Applebot-Extended', tokenOnly: true },
+  { name: 'Meta-ExternalAgent' },
+  { name: 'Amazonbot' },
+  { name: 'CCBot' },
+  { name: 'Bytespider' },
 ]
 
 const problems = [
@@ -36,14 +38,14 @@ const problems = [
   },
   {
     title: 'Found, but never quoted',
-    body: 'Pages without clear structure, headings and facts are hard to cite — so answer engines cite someone else.',
+    body: 'Pages without clear structure, headings and plainly stated facts are harder to quote than pages that have them.',
   },
 ]
 
 const features = [
   {
     title: 'Crawl as every agent',
-    body: 'Run the same crawl as GPTBot, ClaudeBot, PerplexityBot and more, honouring each one’s rules and limits.',
+    body: 'Check every agent’s rules, then fetch your pages the way GPTBot, ClaudeBot, PerplexityBot and more do.',
   },
   {
     title: 'AI readability score',
@@ -117,20 +119,31 @@ const rps = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 })
   <!-- Agents -->
   <Section width="default" innerClass="py-16 sm:py-20">
     <p class="text-center text-sm text-ink-muted">
-      Crawls the way the agents that matter do
+      Checks the rules for the agents that matter
     </p>
     <ul
       class="mt-6 flex flex-wrap justify-center gap-2"
-      aria-label="AI crawlers OpenCrawl emulates"
+      aria-label="AI crawlers and robots.txt tokens OpenCrawl checks"
     >
       {
         agents.map((agent) => (
-          <li class="rounded-full border border-line px-3.5 py-1.5 font-mono text-xs text-ink-muted">
-            {agent}
+          <li
+            class:list={[
+              'rounded-full border border-line px-3.5 py-1.5 font-mono text-xs text-ink-muted',
+              agent.tokenOnly && 'border-dashed',
+            ]}
+          >
+            {agent.name}
+            {agent.tokenOnly && (
+              <span class="sr-only"> (robots.txt token)</span>
+            )}
           </li>
         ))
       }
     </ul>
+    <p class="mt-4 text-center text-xs text-ink-muted">
+      Dashed: robots.txt tokens with no crawler of their own.
+    </p>
   </Section>
 
   <!-- Problems -->
