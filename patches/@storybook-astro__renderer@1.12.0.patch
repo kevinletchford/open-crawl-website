@@ -1,0 +1,39 @@
+diff --git a/dist/chunk-TXHJKMQA.js b/dist/chunk-TXHJKMQA.js
+index a453e2f5619ea0dbc56f81327032157e96a04b1a..fd3d747733c864a22dce91716af1b25704353335 100644
+--- a/dist/chunk-TXHJKMQA.js
++++ b/dist/chunk-TXHJKMQA.js
+@@ -245,7 +245,11 @@ function invokeScriptTags(element) {
+     const src = newScript.getAttribute("src");
+     if (src && newScript.type === "module") {
+       const separator = src.includes("?") ? "&" : "?";
+-      newScript.setAttribute("src", `${src}${separator}sbAstroReload=${scriptReloadToken += 1}`);
++      const reload = `sbAstroReload=${scriptReloadToken += 1}`;
++      // Keep Astro's trailing `lang.ts` last: Vite only compiles TypeScript
++      // when the module id ends in it.
++      const lang = /([?&])(lang\.[a-z]+)$/;
++      newScript.setAttribute("src", lang.test(src) ? src.replace(lang, `$1${reload}&$2`) : `${src}${separator}${reload}`);
+     }
+     newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+     oldScript.parentNode?.replaceChild(newScript, oldScript);
+diff --git a/src/render.tsx b/src/render.tsx
+index a3d7d89462ffe84ef6dde31a7a42bf4cc1eb832f..d270388dcf568638b74eb3ae9127b64bc9a7223e 100644
+--- a/src/render.tsx
++++ b/src/render.tsx
+@@ -334,8 +334,15 @@ function invokeScriptTags(element: HTMLElement) {
+ 
+     if (src && newScript.type === 'module') {
+       const separator = src.includes('?') ? '&' : '?';
+-
+-      newScript.setAttribute('src', `${src}${separator}sbAstroReload=${(scriptReloadToken += 1)}`);
++      const reload = `sbAstroReload=${(scriptReloadToken += 1)}`;
++      // Keep Astro's trailing `lang.ts` last: Vite only compiles TypeScript
++      // when the module id ends in it.
++      const lang = /([?&])(lang\.[a-z]+)$/;
++
++      newScript.setAttribute(
++        'src',
++        lang.test(src) ? src.replace(lang, `$1${reload}&$2`) : `${src}${separator}${reload}`
++      );
+     }
+ 
+     newScript.appendChild(document.createTextNode(oldScript.innerHTML));

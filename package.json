@@ -13,6 +13,8 @@
     "start": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build",
     "check": "astro check && pnpm run check:worker",
     "check:worker": "wrangler types worker/worker-configuration.d.ts >/dev/null && tsc -p worker",
     "lint": "eslint .",
@@ -36,6 +38,8 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
     "@eslint/js": "^10.0.1",
+    "@storybook-astro/framework": "1.12.0",
+    "@storybook/builder-vite": "10.6.0",
     "@types/three": "0.186.0",
     "eslint": "^10.9.1",
     "eslint-config-prettier": "^10.1.8",
@@ -45,6 +49,7 @@
     "lefthook": "^2.1.10",
     "prettier": "^3.9.6",
     "prettier-plugin-astro": "^0.14.1",
+    "storybook": "10.6.0",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.68.0",
     "wrangler": "^4.126.0"
@@ -53,6 +58,9 @@
     "onlyBuiltDependencies": [
       "esbuild",
       "workerd"
-    ]
+    ],
+    "patchedDependencies": {
+      "@storybook-astro/renderer@1.12.0": "patches/@storybook-astro__renderer@1.12.0.patch"
+    }
   }
 }

@@ -32,6 +32,8 @@ inheriting the host's macOS ones.
 | `pnpm dev`              | Dev server on :4321                          |
 | `pnpm build`            | Static build to `./dist`                     |
 | `pnpm preview`          | Serve the built output                       |
+| `pnpm storybook`        | Storybook on :6006                           |
+| `pnpm build-storybook`  | Static Storybook to `./storybook-static`     |
 | `pnpm lint`             | ESLint, including a11y rules on Astro markup |
 | `pnpm lint:fix`         | ESLint with autofix                          |
 | `pnpm format`           | Prettier write                               |
@@ -40,6 +42,23 @@ inheriting the host's macOS ones.
 | `pnpm deploy`           | Build and deploy to Cloudflare Workers       |
 | `pnpm dev:worker`       | Build, then run site + Worker on :8787       |
 | `pnpm db:migrate:local` | Apply D1 migrations to the local database    |
+
+## Storybook
+
+Every data component and the icon set have stories in `src/stories/`. Astro
+components run in Storybook through the community
+[`@storybook-astro/framework`](https://storybook-astro.org) (Storybook has no
+official Astro support), which renders each story with Astro on the
+Storybook dev server, so component scripts and scoped styles behave as they
+do on the site.
+
+`patches/@storybook-astro__renderer@1.12.0.patch` fixes a bug in that
+framework: it served TypeScript component scripts uncompiled, so no
+interactive component worked. Drop the patch once a fixed release is out.
+
+`pnpm build-storybook` renders every story, but in the static build the
+components' scripts point at dev-server paths and don't load, so use
+`pnpm storybook` for anything interactive.
 
 ## Quality gates
 

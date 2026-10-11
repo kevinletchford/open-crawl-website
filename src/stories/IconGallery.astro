@@ -1,0 +1,29 @@
+---
+/** Every icon at every size, outline and solid, for the Icons story. */
+import Icon from '@/components/Icon.astro'
+import { ICON_NAMES, ICONS } from '@/lib/icons'
+
+const sizes = [16, 20, 24] as const
+---
+
+<ul
+  class="grid gap-px overflow-hidden rounded-card border border-line bg-line sm:grid-cols-2 lg:grid-cols-4"
+>
+  {
+    ICON_NAMES.map((name) => (
+      <li class="flex flex-col gap-5 bg-surface p-5">
+        <div class="flex items-end gap-4">
+          {sizes.map((size) => (
+            <Icon name={name} size={size} />
+          ))}
+          <span class="h-6 w-px bg-line" />
+          <Icon name={name} size={24} variant="solid" />
+        </div>
+        <div>
+          <p class="font-mono text-sm">{name}</p>
+          <p class="mt-1 text-xs text-ink-muted">{ICONS[name].meaning}</p>
+        </div>
+      </li>
+    ))
+  }
+</ul>
