@@ -3,6 +3,10 @@
   "name": "open-crawl-website",
   "compatibility_date": "2026-08-26",
 
+  // Serve the site on the apex domain. Deploying creates the DNS record and
+  // certificate for it (the zone is on the same Cloudflare account).
+  "routes": [{ "pattern": "open-crawl.com", "custom_domain": true }],
+
   // Astro builds the site to ./dist and Cloudflare serves it from the edge.
   // The Worker in ./worker only runs for /api/* (the invite form); every
   // other request is answered by static assets without invoking it.
