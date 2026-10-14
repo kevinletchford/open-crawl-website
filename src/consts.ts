@@ -23,5 +23,4 @@ export const GITHUB_URL = 'https://github.com/kevinletchford/open-crawl'
 export const NAV = [
   { href: '/product', label: 'Product' },
   { href: '/benchmarks', label: 'Benchmarks' },
-  { href: '/blog', label: 'Blog' },
 ]
