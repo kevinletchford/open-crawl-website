@@ -28,7 +28,11 @@ const {
   class: className,
   id,
 } = Astro.props
-const hasHeader = title || Astro.slots.has('aside')
+// An aside that renders nothing (say, a conditional) doesn't make a header.
+const aside = Astro.slots.has('aside')
+  ? (await Astro.slots.render('aside')).trim()
+  : ''
+const hasHeader = title || aside
 ---
 
 <figure
@@ -44,7 +48,7 @@ const hasHeader = title || Astro.slots.has('aside')
     hasHeader && (
       <div class="flex flex-wrap items-center justify-between gap-3 border-b border-line px-6 py-4 sm:px-8">
         {title && <p class="text-sm font-medium">{title}</p>}
-        <slot name="aside" />
+        <Fragment set:html={aside} />
       </div>
     )
   }

@@ -1,0 +1,51 @@
+---
+/**
+ * CTA variant 2: a single email field with the button inside it. It hands
+ * off to /invite with the email filled in, and the rest is asked there.
+ * A plain GET, so it works the same with or without JavaScript.
+ */
+import CtaBand from '@/components/cta/CtaBand.astro'
+
+interface Props {
+  heading?: string
+  id?: string
+}
+
+const { heading = 'OpenCrawl is invite-only, for now.', id = 'cta-email' } =
+  Astro.props
+---
+
+<CtaBand>
+  <div class="mx-auto max-w-xl text-center">
+    <h2 class="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+      {heading}
+    </h2>
+    <p class="mx-auto mt-5 max-w-md text-lg text-pretty text-ink-muted">
+      We’re onboarding teams in small batches. Leave your work email to get in
+      the queue.
+    </p>
+    <form
+      method="get"
+      action="/invite"
+      class="mx-auto mt-10 flex max-w-md items-center gap-2 rounded-full border border-white/15 bg-white/[0.06] p-1.5 transition-colors focus-within:border-white/40 focus-within:bg-white/[0.09]"
+    >
+      <label for={id} class="sr-only">Work email</label>
+      <input
+        id={id}
+        type="email"
+        name="email"
+        required
+        maxlength={254}
+        autocomplete="email"
+        placeholder="you@company.com"
+        class="min-w-0 flex-1 bg-transparent px-4 text-base text-ink placeholder:text-white/40 focus:outline-none"
+      />
+      <button type="submit" class="btn btn-primary shrink-0 px-5 py-2.5">
+        Request an invite
+      </button>
+    </form>
+    <p class="mt-4 text-xs text-white/50">
+      A couple of quick questions on the next page, then you’re on the list.
+    </p>
+  </div>
+</CtaBand>

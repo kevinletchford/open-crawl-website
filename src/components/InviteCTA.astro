@@ -1,7 +1,7 @@
 ---
 import InviteForm from '@/components/InviteForm.astro'
 import Section from '@/components/Section.astro'
-import ShaderBackdrop from '@/components/ShaderBackdrop.astro'
+import CrawlGridBackdrop from '@/components/backdrops/CrawlGridBackdrop.astro'
 
 interface Props {
   heading?: string
@@ -10,13 +10,23 @@ interface Props {
 const { heading = 'OpenCrawl is invite-only, for now.' } = Astro.props
 ---
 
-<Section tone="dark" id="invite">
-  <ShaderBackdrop
+<Section tone="dark" id="invite" innerClass="sm:py-36">
+  <CrawlGridBackdrop
     slot="backdrop"
-    seed={404}
-    class="top-1/2 -right-1/3 w-[56rem] -translate-y-1/2 lg:-right-48"
+    variant="flood"
+    seed={21}
+    crawls={5}
+    scale={0.6}
+    class="inset-0 opacity-50"
   />
-  <div class="grid gap-12 lg:grid-cols-[1fr_1.1fr] lg:gap-20">
+  <!-- Darkens the maze behind the copy so the headline stays readable. -->
+  <div
+    slot="backdrop"
+    class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_45%_60%_at_25%_50%,black_30%,transparent_100%)]"
+    aria-hidden="true"
+  >
+  </div>
+  <div class="grid items-center gap-12 lg:grid-cols-[1fr_1.1fr] lg:gap-20">
     <div>
       <h2
         class="text-4xl font-semibold tracking-tight text-balance sm:text-5xl"
@@ -25,11 +35,12 @@ const { heading = 'OpenCrawl is invite-only, for now.' } = Astro.props
       </h2>
       <p class="mt-5 max-w-md text-lg text-ink-muted">
         We’re onboarding teams in small batches so every crawl gets our full
-        attention. Tell us a little about your site and we’ll be in touch.
+        attention. Tell us a little about what you’re crawling and we’ll be in
+        touch.
       </p>
     </div>
     <div
-      class="rounded-card border border-line bg-night-alt/70 p-6 backdrop-blur sm:p-8"
+      class="rounded-[1.25rem] border border-white/10 bg-night-alt p-7 shadow-[0_40px_120px_-40px_rgba(0,0,0,0.9)] sm:p-10"
     >
       <InviteForm />
     </div>

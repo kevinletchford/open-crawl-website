@@ -1,0 +1,227 @@
+---
+/**
+ * CTA variant 4: it opens as a single email bar. Once there's a valid email,
+ * the bar's button turns into a check and the optional questions unfold
+ * beneath it, with a way to skip them. One POST, at the end.
+ *
+ * Without JavaScript the questions are open from the start.
+ */
+import CtaBand from '@/components/cta/CtaBand.astro'
+import { ROLES } from '@/data/invite'
+
+interface Props {
+  heading?: string
+  id?: string
+}
+
+const { heading = 'OpenCrawl is invite-only, for now.', id = 'cta-reveal' } =
+  Astro.props
+
+const field =
+  'block w-full rounded-xl border border-white/[0.06] bg-white/[0.06] px-4 py-3 text-base text-ink transition-colors placeholder:text-white/40 hover:bg-white/[0.09] focus:border-white/40 focus:bg-white/[0.09] focus:outline-none'
+---
+
+<CtaBand>
+  <div data-reveal class="mx-auto max-w-xl text-center">
+    <h2 class="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+      {heading}
+    </h2>
+    <p class="mx-auto mt-5 max-w-md text-lg text-pretty text-ink-muted">
+      We’re onboarding teams in small batches so every crawl gets our full
+      attention.
+    </p>
+
+    <form
+      method="post"
+      action="/api/invite"
+      novalidate
+      class="mx-auto mt-10 max-w-md text-left"
+    >
+      <div
+        class="flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.06] p-1.5 transition-colors focus-within:border-white/40 focus-within:bg-white/[0.09]"
+      >
+        <label for={`${id}-email`} class="sr-only">Work email</label>
+        <input
+          id={`${id}-email`}
+          type="email"
+          name="email"
+          required
+          maxlength={254}
+          autocomplete="email"
+          placeholder="you@company.com"
+          class="min-w-0 flex-1 bg-transparent px-4 text-base text-ink placeholder:text-white/40 focus:outline-none"
+        />
+        <button
+          type="button"
+          data-open
+          hidden
+          class="btn btn-primary shrink-0 px-5 py-2.5"
+        >
+          Continue
+        </button>
+        <span
+          data-tick
+          hidden
+          class="grid size-10 shrink-0 place-items-center rounded-full bg-white text-black"
+          aria-hidden="true"
+        >
+          <svg
+            viewBox="0 0 16 16"
+            class="size-4"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"><path d="m3.5 8.5 3 3 6-7"></path></svg
+          >
+        </span>
+      </div>
+
+      <div
+        data-more
+        class="grid transition-[grid-template-rows] duration-500 ease-out"
+      >
+        <div class="overflow-hidden">
+          <div class="grid gap-3 pt-6 sm:grid-cols-2">
+            <p class="text-sm text-white/55 sm:col-span-2">
+              Thanks. A little context helps us get you in sooner — all
+              optional.
+            </p>
+            <label class="sr-only" for={`${id}-name`}>Name</label>
+            <input
+              id={`${id}-name`}
+              class={field}
+              type="text"
+              name="name"
+              maxlength={120}
+              autocomplete="name"
+              placeholder="Name"
+            />
+            <label class="sr-only" for={`${id}-company`}>Company</label>
+            <input
+              id={`${id}-company`}
+              class={field}
+              type="text"
+              name="company"
+              maxlength={120}
+              autocomplete="organization"
+              placeholder="Company"
+            />
+            <label class="sr-only" for={`${id}-website`}>Website</label>
+            <input
+              id={`${id}-website`}
+              class:list={[field, 'sm:col-span-2']}
+              type="text"
+              name="website"
+              maxlength={2048}
+              autocomplete="url"
+              inputmode="url"
+              placeholder="Website you’ll crawl"
+            />
+            <div
+              class="mt-1 flex flex-wrap gap-2 sm:col-span-2"
+              role="radiogroup"
+              aria-label="Your role"
+            >
+              {
+                ROLES.map((role) => (
+                  <label class="cursor-pointer">
+                    <input
+                      type="radio"
+                      name="role"
+                      value={role.value}
+                      class="peer sr-only"
+                    />
+                    <span class="block rounded-full border border-white/20 px-3.5 py-1.5 text-sm text-white/75 transition-colors peer-checked:border-white peer-checked:bg-white peer-checked:text-black peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-white hover:border-white/50">
+                      {role.label}
+                    </span>
+                  </label>
+                ))
+              }
+            </div>
+            <div
+              class="mt-3 flex flex-wrap items-center gap-x-5 gap-y-3 sm:col-span-2"
+            >
+              <button type="submit" class="btn btn-primary px-6 py-3 text-base">
+                Request an invite
+              </button>
+              <button
+                type="submit"
+                data-skip
+                class="text-sm text-white/55 underline-offset-4 hover:text-ink hover:underline"
+              >
+                Skip, just send it
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="absolute -left-[9999px]" aria-hidden="true">
+        <label
+          >Company URL <input
+            type="text"
+            name="company_url"
+            tabindex="-1"
+            autocomplete="off"
+          /></label
+        >
+      </div>
+      <p data-invite-error role="alert" hidden class="mt-4 text-sm font-medium">
+      </p>
+    </form>
+
+    <div data-invite-done hidden tabindex="-1" class="mt-10 focus:outline-none">
+      <p class="text-2xl font-semibold tracking-tight">You’re on the list.</p>
+      <p class="mt-2 text-white/75">Watch your inbox for an invite.</p>
+    </div>
+  </div>
+</CtaBand>
+
+<script>
+  import { wireInviteSubmit } from '@/scripts/invite-submit'
+
+  for (const root of document.querySelectorAll<HTMLElement>('[data-reveal]')) {
+    const form = root.querySelector('form')!
+    const email = form.elements.namedItem('email') as HTMLInputElement
+    const more = root.querySelector<HTMLElement>('[data-more]')!
+    const open = root.querySelector<HTMLButtonElement>('[data-open]')!
+    const tick = root.querySelector<HTMLElement>('[data-tick]')!
+    let opened = false
+
+    const setOpen = (value: boolean) => {
+      opened = value
+      more.style.gridTemplateRows = value ? '1fr' : '0fr'
+      more.inert = !value
+      open.hidden = value
+      tick.hidden = !value
+    }
+
+    const reveal = () => {
+      if (!email.reportValidity()) return
+      setOpen(true)
+      form
+        .querySelector<HTMLInputElement>('[name=name]')!
+        .focus({ preventScroll: true })
+    }
+
+    open.addEventListener('click', reveal)
+    // Enter in the email bar opens the questions instead of sending.
+    form.addEventListener('submit', (event) => {
+      if (!opened) {
+        event.preventDefault()
+        event.stopImmediatePropagation()
+        reveal()
+      }
+    })
+    // Skipping sends the email alone, whatever got typed below it.
+    root.querySelector('[data-skip]')!.addEventListener('click', () => {
+      form
+        .querySelectorAll<HTMLInputElement>('[data-more] input')
+        .forEach((input) => {
+          if (input.type === 'radio') input.checked = false
+          else input.value = ''
+        })
+    })
+    wireInviteSubmit(root)
+    setOpen(false)
+  }
+</script>

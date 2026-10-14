@@ -1,0 +1,29 @@
+---
+/** A step's snippet in a small dark well, its prompt and output muted. */
+import { prompt } from '@/data/steps'
+
+interface Props {
+  lines: string[]
+  class?: string
+}
+const { lines, class: className } = Astro.props
+---
+
+<div
+  class:list={[
+    'overflow-x-auto rounded-lg border border-line bg-surface-alt px-4 py-3 font-mono text-xs leading-relaxed',
+    className,
+  ]}
+>
+  {
+    lines.map((line) => (
+      <code class="block whitespace-pre" data-line>
+        <span class="text-ink-muted" set:text={prompt(line)} />
+        <span
+          class={line.startsWith('  ') ? 'text-ink-muted' : undefined}
+          set:text={line.slice(prompt(line).length)}
+        />
+      </code>
+    ))
+  }
+</div>

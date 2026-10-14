@@ -1,6 +1,6 @@
 ---
 import Logo from '@/components/Logo.astro'
-import { GITHUB_URL, NAV, SITE_TITLE } from '@/consts'
+import { NAV, SITE_TITLE } from '@/consts'
 
 const year = new Date().getFullYear()
 
@@ -9,25 +9,17 @@ const columns = [
     heading: 'Product',
     links: [...NAV, { href: '/invite', label: 'Request an invite' }],
   },
-  {
-    heading: 'Open source',
-    links: [
-      { href: GITHUB_URL, label: 'GitHub' },
-      { href: '/Light.svg', label: 'Logo (light)' },
-      { href: '/Dark.svg', label: 'Logo (dark)' },
-    ],
-  },
 ]
 ---
 
 <footer class="band-dark">
   <div
-    class="mx-auto grid max-w-6xl gap-12 px-4 py-16 sm:px-6 md:grid-cols-[1fr_auto_auto] md:gap-20"
+    class="mx-auto grid max-w-6xl gap-12 px-4 py-16 sm:px-6 md:grid-cols-[1fr_auto] md:gap-20"
   >
     <div class="max-w-xs">
       <Logo class="h-8 w-auto" label={SITE_TITLE} />
       <p class="mt-4 text-sm text-ink-muted">
-        Find your way through every page the way AI crawlers do.
+        A fast, open crawler your agents can drive.
       </p>
     </div>
     {

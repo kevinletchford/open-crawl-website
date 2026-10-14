@@ -1,0 +1,41 @@
+---
+/**
+ * The invite band's shell, shared by the CTA variants: a dark section over
+ * the flooding crawl grid, with a dark wash behind the copy. `focus` moves
+ * the wash to sit behind left-aligned or centred copy.
+ */
+import Section from '@/components/Section.astro'
+import CrawlGridBackdrop from '@/components/backdrops/CrawlGridBackdrop.astro'
+
+interface Props {
+  focus?: 'left' | 'center'
+  id?: string
+  innerClass?: string
+  seed?: number
+}
+
+const { focus = 'center', id, innerClass, seed = 21 } = Astro.props
+---
+
+<Section tone="dark" id={id} innerClass={innerClass ?? 'sm:py-32'}>
+  <CrawlGridBackdrop
+    slot="backdrop"
+    variant="flood"
+    seed={seed}
+    crawls={5}
+    scale={0.6}
+    class="inset-0 opacity-50"
+  />
+  <div
+    slot="backdrop"
+    class:list={[
+      'pointer-events-none absolute inset-0',
+      focus === 'left'
+        ? 'bg-[radial-gradient(ellipse_45%_60%_at_25%_50%,black_30%,transparent_100%)]'
+        : 'bg-[radial-gradient(ellipse_50%_65%_at_50%_50%,black_35%,transparent_100%)]',
+    ]}
+    aria-hidden="true"
+  >
+  </div>
+  <slot />
+</Section>

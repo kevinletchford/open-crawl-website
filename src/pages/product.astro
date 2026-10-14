@@ -1,37 +1,45 @@
 ---
-import InfiniteMazeSvg from '@/components/InfiniteMazeSvg.astro'
-import InviteCTA from '@/components/InviteCTA.astro'
+import CrawlMazeSvg from '@/components/CrawlMazeSvg.astro'
+import CtaCommand from '@/components/cta/CtaCommand.astro'
+import PluginHooks from '@/components/PluginHooks.astro'
 import Section from '@/components/Section.astro'
 import ShaderBackdrop from '@/components/ShaderBackdrop.astro'
-import AgentAccessMatrix from '@/components/data/AgentAccessMatrix.astro'
 import CrawlFunnel from '@/components/data/CrawlFunnel.astro'
 import CrawlProgressChart from '@/components/data/CrawlProgressChart.astro'
 import MetricStrip from '@/components/data/MetricStrip.astro'
-import ReadabilityScore from '@/components/data/ReadabilityScore.astro'
 import RenderDiff from '@/components/data/RenderDiff.astro'
-import SiteMaze from '@/components/data/SiteMaze.astro'
-import {
-  ACCESS,
-  AGENTS,
-  FUNNEL,
-  METRICS,
-  PROGRESS,
-  READABILITY,
-  RENDER,
-} from '@/data/demo'
+import { FUNNEL, METRICS, PROGRESS, RENDER } from '@/data/demo'
 import BaseLayout from '@/layouts/BaseLayout.astro'
 
-const lifecycle = [
-  { hook: 'preAudit', body: 'Read and adjust the audit configuration.' },
-  { hook: 'preCapture', body: 'Run just before a node is fetched.' },
-  { hook: 'render', body: 'Configure how each node is rendered.' },
-  { hook: 'postCapture', body: 'Enrich, score or export what was captured.' },
+const outputs = [
+  { name: 'JSON', body: 'One report per crawl, for scripts and CI.' },
+  {
+    name: 'JSON Lines',
+    body: 'One record per page, streamed as it’s captured.',
+  },
+  { name: 'SQLite', body: 'Every run kept, queryable and comparable.' },
+  { name: 'MCP', body: 'Live answers for the agents that need them.' },
+]
+
+const politeness = [
+  {
+    title: 'robots.txt first',
+    body: 'Read before any other request and matched per RFC 9309, including wildcards and the longest-match rule.',
+  },
+  {
+    title: 'Throttled by default',
+    body: 'A few requests in flight, spaced apart. Turn it up for sites you own; leave it alone for the rest.',
+  },
+  {
+    title: 'Honest about who it is',
+    body: 'A clear user agent with a link back, so site owners know who’s visiting and how to reach you.',
+  },
 ]
 ---
 
 <BaseLayout
   title="Product"
-  description="Crawl as every AI agent, score every page for AI readability, and see exactly what answer engines can and can’t reach."
+  description="A fast, open crawl engine your agents can drive over MCP, with hooks at every step and output that plugs into any pipeline."
 >
   <Section innerClass="pt-20 pb-16 sm:pt-28 sm:pb-20">
     <div class="grid items-center gap-12 lg:grid-cols-[1.3fr_1fr]">
@@ -39,18 +47,17 @@ const lifecycle = [
         <h1
           class="text-5xl font-semibold tracking-tight text-balance sm:text-6xl"
         >
-          Every path an AI agent can take through your site.
+          A crawler your agents can drive.
         </h1>
         <p class="mt-6 max-w-xl text-lg text-ink-muted">
-          OpenCrawl is a fast, open crawl engine with an AI-visibility audit on
-          top. It walks your site the way each agent does, then shows you where
-          they get stuck.
+          OpenCrawl is a fast, open crawl engine with an MCP server built in.
+          Your agents call it like any other tool. Your pipelines read it like
+          any other data source.
         </p>
         <a href="/invite" class="btn btn-primary mt-10">Request an invite</a>
       </div>
-      <InfiniteMazeSvg
+      <CrawlMazeSvg
         seed={7}
-        crawl={30}
         class="mx-auto hidden w-full max-w-sm text-ink lg:block"
       />
     </div>
@@ -60,57 +67,99 @@ const lifecycle = [
     <MetricStrip metrics={METRICS} />
   </Section>
 
-  <!-- Agent access -->
+  <!-- MCP -->
   <Section tone="alt">
-    <div class="max-w-2xl">
-      <h2 class="text-3xl font-semibold tracking-tight text-balance">
-        Know who’s allowed in, page by page.
-      </h2>
-      <p class="mt-4 text-ink-muted">
-        robots.txt groups, llms.txt, meta robots, X-Robots-Tag headers and
-        firewall responses all decide what an agent can read. OpenCrawl resolves
-        them together for every agent and every URL, so a rule that blocks one
-        bot and not another is impossible to miss.
-      </p>
+    <div class="grid items-center gap-16 lg:grid-cols-2">
+      <div>
+        <h2 class="text-3xl font-semibold tracking-tight text-balance">
+          Crawling as a tool call.
+        </h2>
+        <p class="mt-4 text-ink-muted">
+          <code class="font-mono text-sm">opencrawl mcp</code> serves the engine over
+          the Model Context Protocol. Any MCP client can start a crawl, ask for its
+          progress, and query the pages it found by path, status or content, then
+          reason over real responses rather than guesses.
+        </p>
+        <p class="mt-4 text-ink-muted">
+          Long crawls run in the background and are saved, so an agent can pick
+          up a result hours later, or compare it with last week’s.
+        </p>
+      </div>
+      <figure
+        class="band-dark overflow-hidden rounded-card border border-line font-mono text-sm"
+      >
+        <figcaption
+          class="border-b border-line px-5 py-3 text-xs text-ink-muted"
+        >
+          Illustrative session
+        </figcaption>
+        <div class="space-y-4 p-5 leading-relaxed">
+          <p>
+            <span class="text-ink-muted">you ›</span> Crawl our docs and list every
+            page that links somewhere broken.
+          </p>
+          <p class="text-ink-muted">
+            → <span class="text-white">run_crawl</span>
+            {'{'} url: "https://example.com/docs/", max_pages: 2000 {'}'}
+          </p>
+          <p class="text-ink-muted">
+            → <span class="text-white">query_pages</span>
+            {'{'} crawl: "c_81f2", links_to_status: "4xx" {'}'}
+          </p>
+          <p>
+            <span class="text-ink-muted">agent ›</span> 1,742 pages crawled. 23 link
+            to a 404, all through the old <span class="text-white">/v1/</span> API
+            reference. Want the list as a CSV?
+          </p>
+        </div>
+      </figure>
     </div>
-    <AgentAccessMatrix agents={AGENTS} rows={ACCESS} class="mt-12" />
+  </Section>
+
+  <!-- Hooks + outputs -->
+  <Section>
+    <div class="grid gap-16 lg:grid-cols-2">
+      <PluginHooks />
+      <div>
+        <h2 class="text-3xl font-semibold tracking-tight text-balance">
+          Send results wherever they’re going.
+        </h2>
+        <p class="mt-4 text-ink-muted">
+          OpenCrawl doesn’t want to be your whole stack. It writes plain,
+          documented formats, so the crawl slots in ahead of a search index, a
+          warehouse, an eval set, or the crawler you already run.
+        </p>
+        <dl
+          class="mt-8 space-y-px overflow-hidden rounded-card border border-line"
+        >
+          {
+            outputs.map((output) => (
+              <div class="flex gap-4 bg-surface-alt px-5 py-4">
+                <dt class="w-24 shrink-0 font-mono text-sm font-medium">
+                  {output.name}
+                </dt>
+                <dd class="text-sm text-ink-muted">{output.body}</dd>
+              </div>
+            ))
+          }
+        </dl>
+      </div>
+    </div>
   </Section>
 
   <!-- Funnel -->
-  <Section>
+  <Section tone="alt">
     <div class="max-w-2xl">
       <h2 class="text-3xl font-semibold tracking-tight text-balance">
-        See exactly where pages fall out of reach.
+        Every URL accounted for.
       </h2>
       <p class="mt-4 text-ink-muted">
-        Every URL is followed from discovery to a page an agent can actually
-        read. Each drop-off is counted, and links straight to the fixes that win
-        those pages back.
+        Each URL is followed from discovery to the record you get out. Anything
+        that drops out on the way, from a robots.txt rule to a duplicate to a
+        page your own hook filtered, is counted and kept with its reason.
       </p>
     </div>
-    <CrawlFunnel {...FUNNEL} fixesHref="#readability" class="mt-12" />
-  </Section>
-
-  <!-- Score -->
-  <Section tone="alt">
-    <div class="grid items-center gap-12 lg:grid-cols-2">
-      <ReadabilityScore
-        {...READABILITY}
-        id="readability"
-        class="order-last lg:order-first"
-      />
-      <div>
-        <h2 class="text-3xl font-semibold tracking-tight text-balance">
-          One number per page, and the reasons behind it.
-        </h2>
-        <p class="mt-4 text-ink-muted">
-          Each page is scored on whether agents can reach it, whether its
-          content survives without JavaScript, whether it’s structured clearly,
-          and whether it says things plainly enough to be quoted. Fixes are
-          ranked by how many pages and agents they unblock.
-        </p>
-      </div>
-    </div>
+    <CrawlFunnel {...FUNNEL} class="mt-12" />
   </Section>
 
   <!-- Render diff -->
@@ -122,94 +171,54 @@ const lifecycle = [
     />
     <div class="max-w-2xl">
       <h2 class="text-3xl font-semibold tracking-tight text-balance">
-        What your visitors see vs. what the crawler gets.
+        Raw HTML when it’s enough. A browser when it isn’t.
       </h2>
       <p class="mt-4 text-ink-muted">
-        Most AI crawlers fetch raw HTML and never run your scripts. OpenCrawl
-        captures both versions of every page and highlights what disappears.
+        Rendering every page is slow and expensive. OpenCrawl fetches raw HTML
+        by default, renders with headless Chrome where you ask it to, and shows
+        exactly what the scripts added.
       </p>
     </div>
     <RenderDiff {...RENDER} class="mt-12" />
   </Section>
 
-  <!-- Watch the crawl -->
+  <!-- Progress -->
   <Section>
     <div class="max-w-2xl">
       <h2 class="text-3xl font-semibold tracking-tight text-balance">
-        Watch each agent find its way through.
+        Watch a crawl as it runs.
       </h2>
       <p class="mt-4 text-ink-muted">
-        A crawl spreads one link at a time. Follow it as each agent would, and
-        see the whole sections it never finds because one page turned it away.
+        Discovery and fetching are reported as they happen, against the last run
+        of the same crawl, so slowdowns and missing sections show up early.
       </p>
     </div>
-    <SiteMaze class="mt-12" />
-    <CrawlProgressChart {...PROGRESS} class="mt-6" />
+    <CrawlProgressChart {...PROGRESS} class="mt-12" />
   </Section>
 
-  <!-- Plugins + MCP -->
+  <!-- Politeness -->
   <Section tone="alt">
-    <div class="grid gap-16 lg:grid-cols-2">
-      <div>
-        <h2 class="text-3xl font-semibold tracking-tight text-balance">
-          Hook into every step of the crawl.
-        </h2>
-        <p class="mt-4 text-ink-muted">
-          The engine exposes four lifecycle hooks, so you can add your own
-          checks, change how pages are rendered, or send results anywhere.
-        </p>
-        <ol
-          class="mt-8 space-y-px overflow-hidden rounded-card border border-line"
-        >
-          {
-            lifecycle.map((step, i) => (
-              <li class="flex gap-4 bg-surface-alt px-5 py-4">
-                <span class="font-mono text-sm text-ink-muted">{i + 1}</span>
-                <div>
-                  <p class="font-mono text-sm font-medium">{step.hook}</p>
-                  <p class="mt-0.5 text-sm text-ink-muted">{step.body}</p>
-                </div>
-              </li>
-            ))
-          }
-        </ol>
-      </div>
-      <div>
-        <h2 class="text-3xl font-semibold tracking-tight text-balance">
-          Let your agents read the map.
-        </h2>
-        <p class="mt-4 text-ink-muted">
-          OpenCrawl ships an MCP server, so the AI tools your team already uses
-          can ask questions about any crawl directly.
-        </p>
-        <figure
-          class="band-dark mt-8 overflow-hidden rounded-card border border-line font-mono text-sm"
-        >
-          <figcaption
-            class="border-b border-line px-5 py-3 text-xs text-ink-muted"
-          >
-            Illustrative session
-          </figcaption>
-          <div class="space-y-4 p-5 leading-relaxed">
-            <p>
-              <span class="text-ink-muted">you ›</span> Which product pages can’t
-              ClaudeBot read?
-            </p>
-            <p class="text-ink-muted">
-              → <span class="text-white">crawl.query</span>
-              {'{'} agent: "ClaudeBot", path: "/products/*", readable: false {
-                '}'
-              }
-            </p>
-            <p>
-              <span class="text-ink-muted">agent ›</span> 14 pages. All 14 load their
-              specs client-side; the raw HTML has no product details.
-            </p>
-          </div>
-        </figure>
-      </div>
+    <div class="max-w-2xl">
+      <h2 class="text-3xl font-semibold tracking-tight text-balance">
+        Fast without being rude.
+      </h2>
+      <p class="mt-4 text-ink-muted">
+        A crawler that agents can start on their own has to behave well on its
+        own. The defaults assume the site isn’t yours.
+      </p>
     </div>
+    <div class="mt-12 grid gap-10 md:grid-cols-3">
+      {
+        politeness.map((item) => (
+          <div class="border-t border-ink pt-6">
+            <h3 class="font-semibold">{item.title}</h3>
+            <p class="mt-2 text-sm text-ink-muted">{item.body}</p>
+          </div>
+        ))
+      }
+    </div>
+    <a href="/benchmarks" class="btn btn-ghost mt-10">See how fast it goes →</a>
   </Section>
 
-  <InviteCTA />
+  <CtaCommand variant="typed" />
 </BaseLayout>

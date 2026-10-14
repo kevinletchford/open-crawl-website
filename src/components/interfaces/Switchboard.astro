@@ -1,0 +1,572 @@
+---
+/**
+ * What starts a crawl on the left, the engine, and where its results go,
+ * two by two on the right. A streak of light carries each page from an
+ * input into the engine and on to every output, where it lands: the
+ * report's figures settle, the agent hears about the newest 404, a JSON
+ * line streams out of the API, the exports grow. Hover or focus a card to
+ * read what it's for and narrow the flow to it; the other lines dim.
+ *
+ * On small screens it turns on its side: inputs along the top as icons,
+ * outputs two by two underneath. Each layout has its own lines, in a
+ * 100 × 100 viewBox stretched to the box (non-scaling strokes keep the dots
+ * round), and the cards sit at the same percentages through CSS variables,
+ * so a line's ends always meet its card. Pages travel whichever lines are
+ * shown.
+ *
+ * Without script or with reduced motion it's still: the wiring and the
+ * outputs as they'd stand after a crawl.
+ */
+import Icon from '@/components/Icon.astro'
+import Logo from '@/components/Logo.astro'
+import { INPUTS, OUTPUTS } from '@/data/interfaces'
+import { SHOW, START } from './stats'
+
+interface Props {
+  class?: string
+}
+const { class: className } = Astro.props
+
+const spread = (i: number, n: number) => ((i + 0.5) / n) * 100
+
+// Where things sit, as percentages of the box: wide, then narrow.
+// Wide: outputs two by two, each anchored at its left edge.
+const wide = {
+  in: (i: number) => [20, spread(i, INPUTS.length)] as const,
+  hub: [29, 36, 43] as const, // left edge, centre, right edge
+  out: (j: number) => [j % 2 ? 76.5 : 52, j < 2 ? 25 : 75] as const,
+}
+// Narrow: outputs two by two, each anchored at its top centre.
+const narrow = {
+  in: (i: number) => [spread(i, INPUTS.length), 6] as const,
+  hub: [25, 30, 35] as const, // inside its top edge, centre, bottom edge
+  out: (j: number) => [j % 2 ? 74.5 : 25.5, j < 2 ? 48 : 72] as const,
+}
+
+const across = (x1: number, y1: number, x2: number, y2: number) => {
+  const mid = (x1 + x2) / 2
+  return `M${x1} ${y1}C${mid} ${y1} ${mid} ${y2} ${x2} ${y2}`
+}
+const down = (x1: number, y1: number, x2: number, y2: number) => {
+  const mid = (y1 + y2) / 2
+  return `M${x1} ${y1}C${x1} ${mid} ${x2} ${mid} ${x2} ${y2}`
+}
+// Wide, the far column is reached along the gap between the rows, turning
+// into the card's facing edge.
+const between = (j: number) => {
+  const x = 88.25
+  const up = j < 2 ? -1 : 1
+  return `M${wide.hub[2]} 50H${x - 4}Q${x} 50 ${x} ${50 + up * 4}V${50 + up * 12}`
+}
+// Narrow, the bottom row is reached down the gap between the top two,
+// turning in at the card's inner edge.
+const gap = (j: number) => {
+  const y = narrow.out(j)[1] + 8
+  const x = j % 2 ? 55 : 45
+  return `M50 ${narrow.hub[2]}V${y - 4}Q50 ${y} ${x} ${y}`
+}
+const layouts = [
+  {
+    name: 'wide',
+    class: 'max-sm:hidden',
+    lines: [
+      ...INPUTS.map((item, i) => ({
+        name: item.name,
+        d: across(...wide.in(i), wide.hub[0], 50),
+      })),
+      ...OUTPUTS.map((item, j) => ({
+        name: item.name,
+        d: j % 2 ? between(j) : across(wide.hub[2], 50, ...wide.out(j)),
+      })),
+    ],
+  },
+  {
+    name: 'narrow',
+    class: 'sm:hidden',
+    lines: [
+      ...INPUTS.map((item, i) => ({
+        name: item.name,
+        d: down(narrow.in(i)[0], 9.5, 50, narrow.hub[0]),
+      })),
+      ...OUTPUTS.map((item, j) => ({
+        name: item.name,
+        d:
+          j < 2
+            ? down(50, narrow.hub[2], narrow.out(j)[0], narrow.out(j)[1] + 1)
+            : gap(j),
+      })),
+    ],
+  },
+]
+
+const at = (w: readonly [number, number], n: readonly [number, number]) =>
+  `--x: ${w[0]}%; --y: ${w[1]}%; --mx: ${n[0]}%; --my: ${n[1]}%`
+
+const report = ['fetched', 'rendered', 'errors'] as const
+const api = [
+  '{"url":"/","status":200,"ms":84}',
+  '{"url":"/docs/","status":200,"ms":121}',
+  '{"url":"/pricing","status":200,"ms":96}',
+]
+const exports = [
+  ['pages.jsonl', 'rows'],
+  ['pages.csv', 'rows'],
+  ['crawl.db', 'size'],
+] as const
+---
+
+<div
+  class:list={[
+    'switchboard relative h-[34rem] sm:h-[22rem] lg:h-[30rem]',
+    className,
+  ]}
+  data-switchboard
+  data-reveal
+>
+  {
+    layouts.map((layout) => (
+      <svg
+        class:list={['absolute inset-0 size-full text-ink', layout.class]}
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        {layout.lines.map((line) => (
+          <path
+            d={line.d}
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-dasharray="0 6"
+            vector-effect="non-scaling-stroke"
+            class="wire"
+            data-line={line.name}
+          />
+        ))}
+      </svg>
+    ))
+  }
+
+  <ul class="pointer-events-none absolute inset-0" aria-label="Drive it from">
+    {
+      INPUTS.map((item, i) => (
+        <li class="at at-in" style={at(wide.in(i), narrow.in(i))}>
+          <button
+            type="button"
+            class="card pointer-events-auto flex items-center gap-3 rounded-xl border border-line bg-surface py-2 pr-4 pl-3 text-left lg:gap-4 lg:py-3 lg:pr-5 lg:pl-4 max-sm:size-11 max-sm:justify-center max-sm:rounded-full max-sm:p-0"
+            data-label={item.name}
+            data-side="in"
+            data-note={item.note}
+          >
+            <Icon name={item.icon} size={20} class="lg:size-6" />
+            <span class="max-sm:sr-only">
+              <span class="block text-sm font-medium lg:text-base">
+                {item.name}
+              </span>
+              <span class="block font-mono text-[11px] whitespace-nowrap text-ink-muted lg:text-xs">
+                {item.tag}
+              </span>
+            </span>
+          </button>
+        </li>
+      ))
+    }
+  </ul>
+
+  <div
+    class="at at-hub flex flex-col transition-[border-color] duration-1000 items-center gap-2.5 rounded-card border border-ink/30 bg-surface px-3 py-5 text-center lg:gap-3 lg:px-4 lg:py-7"
+    style={at([wide.hub[1], 50], [50, narrow.hub[1]])}
+    data-hub
+  >
+    <Logo class="h-auto w-full max-w-32 lg:max-w-40" />
+    <span class="font-mono text-[11px] text-ink-muted lg:text-xs">
+      <span class="text-ink" data-stat="rows">{SHOW.rows(START)}</span> pages
+    </span>
+  </div>
+
+  <ul class="pointer-events-none absolute inset-0" aria-label="Send results to">
+    {
+      OUTPUTS.map((item, j) => (
+        <li class="at at-out" style={at(wide.out(j), narrow.out(j))}>
+          <button
+            type="button"
+            class="card pointer-events-auto block w-full overflow-hidden rounded-xl border border-line bg-surface text-left"
+            data-label={item.name}
+            data-side="out"
+            data-note={item.note}
+          >
+            <span class="flex items-center gap-2 border-b border-line px-3 py-2 lg:gap-2.5 lg:px-4 lg:py-3">
+              <Icon name={item.icon} size={16} class="lg:size-5" />
+              <span class="text-sm font-medium whitespace-nowrap max-sm:text-xs lg:text-base">
+                {item.name}
+              </span>
+              <span class="ml-auto font-mono text-[11px] whitespace-nowrap text-ink-muted max-sm:hidden lg:text-xs">
+                {item.tag}
+              </span>
+            </span>
+            <span
+              class="block h-[4.25rem] overflow-hidden px-3 py-2 font-mono text-[11px] leading-4 text-ink-muted max-sm:text-[10px] lg:h-[5.75rem] lg:px-4 lg:py-3 lg:text-xs lg:leading-5.5"
+              data-body={item.name}
+            >
+              {item.name === 'Reports' &&
+                report.map((key) => (
+                  <span class="flex items-center gap-2">
+                    <span class="w-16 capitalize max-sm:w-14 lg:w-20">
+                      {key}
+                    </span>
+                    <span class="h-px flex-1 bg-line">
+                      <span
+                        class="bar block h-px bg-ink"
+                        style={`width: ${SHOW[key](START)}`}
+                        data-bar={key}
+                      />
+                    </span>
+                    <span
+                      class="w-10 text-right text-ink lg:w-12"
+                      data-stat={key}
+                    >
+                      {SHOW[key](START)}
+                    </span>
+                  </span>
+                ))}
+              {item.name === 'Agents' && (
+                <>
+                  <span class="block truncate">› which pages 404?</span>
+                  <span class="block truncate text-ink">
+                    <span data-stat="error-count">
+                      {SHOW['error-count'](START)}
+                    </span>{' '}
+                    pages, latest{' '}
+                    <span data-stat="missing">{SHOW.missing(START)}</span>
+                  </span>
+                  <span class="block truncate">
+                    reading{' '}
+                    <span data-stat="current">{SHOW.current(START)}</span>
+                  </span>
+                </>
+              )}
+              {item.name === 'API' &&
+                api.map((line) => (
+                  <span class="block whitespace-nowrap">{line}</span>
+                ))}
+              {item.name === 'Exports' &&
+                exports.map(([file, key]) => (
+                  <span class="flex justify-between gap-2">
+                    <span>{file}</span>
+                    <span class="text-ink" data-stat={key}>
+                      {SHOW[key](START)}
+                    </span>
+                  </span>
+                ))}
+            </span>
+          </button>
+        </li>
+      ))
+    }
+  </ul>
+</div>
+<p
+  class="mx-auto mt-6 h-10 max-w-md text-center text-sm text-balance text-ink-muted"
+  aria-live="polite"
+  data-switchboard-note
+>
+</p>
+
+<style>
+  .at {
+    position: absolute;
+    left: var(--x);
+    top: var(--y);
+  }
+  .at-in {
+    translate: -100% -50%;
+  }
+  .at-hub {
+    width: 14%;
+    translate: -50% -50%;
+  }
+  .at-out {
+    width: 23.5%;
+    translate: 0 -50%;
+  }
+  @media (width < 40rem) {
+    .at {
+      left: var(--mx);
+      top: var(--my);
+    }
+    .at-in {
+      translate: -50% -50%;
+    }
+    .at-hub {
+      width: 40%;
+    }
+    .at-out {
+      width: 47%;
+      translate: -50% 0;
+    }
+  }
+
+  .wire {
+    opacity: 0.3;
+    transition: opacity 0.6s ease;
+  }
+  [data-active] .wire {
+    opacity: 0.08;
+  }
+  [data-active] .wire.on {
+    opacity: 0.9;
+  }
+  .card {
+    transition:
+      border-color 1.2s ease,
+      background-color 0.4s ease,
+      color 0.4s ease;
+  }
+  .card.on {
+    border-color: var(--color-ink);
+  }
+  .card[data-side='in'].on {
+    background-color: var(--color-ink);
+    color: var(--color-surface);
+  }
+  .card[data-side='in'].on .text-ink-muted {
+    color: inherit;
+    opacity: 0.6;
+  }
+  /* The stream runs off the edge. */
+  [data-body='API'] {
+    mask-image: linear-gradient(to right, black 80%, transparent);
+  }
+  .bar {
+    transition: width 1.6s cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  /* Set off by the script as pages leave and arrive. */
+  .switchboard :global(.lit) {
+    border-color: color-mix(in oklab, var(--color-ink) 45%, transparent);
+    transition-duration: 0.3s;
+  }
+  .switchboard :global(.settle) {
+    animation: settle 1.4s ease-out;
+  }
+  .switchboard :global(.arrive) {
+    animation: arrive 1s cubic-bezier(0.2, 0, 0, 1);
+  }
+  @keyframes settle {
+    from {
+      opacity: 0.35;
+    }
+  }
+  @keyframes arrive {
+    from {
+      opacity: 0;
+      translate: 0 0.35rem;
+    }
+  }
+</style>
+
+<script>
+  import { fresh } from '@/scripts/data/fresh'
+  import { onReveal, scan, still } from '@/scripts/data/reveal'
+  import { INPUTS, OUTPUTS } from '@/data/interfaces'
+  import { SHOW, START } from './stats'
+
+  // Not in a Figure, so watch for the reveal here.
+  queueMicrotask(scan)
+
+  // The pages that flow through: path, status, response time, rendered.
+  const PAGES: [string, number, number, boolean][] = [
+    ['/docs/install', 200, 96, false],
+    ['/blog/', 200, 143, true],
+    ['/old-pricing', 301, 12, false],
+    ['/docs/api', 200, 211, true],
+    ['/changelog', 200, 104, false],
+    ['/careers/2019/design', 404, 31, false],
+    ['/docs/sdk', 200, 176, true],
+    ['/about', 200, 79, false],
+    ['/blog/launch', 200, 158, true],
+    ['/docs/', 200, 121, false],
+  ]
+
+  // How long a page takes over each leg, and how often one leaves.
+  const IN_MS = 1700
+  const OUT_MS = 1500
+  const EVERY = 2400
+
+  const restart = (el: Element, name: string) => {
+    el.classList.remove(name)
+    void (el as HTMLElement).offsetWidth
+    el.classList.add(name)
+  }
+  // Brightens a card's border, then lets it fade back.
+  const light = (el: Element) => {
+    el.classList.add('lit')
+    window.setTimeout(() => el.classList.remove('lit'), 350)
+  }
+  const ease = (t: number) => -(Math.cos(Math.PI * t) - 1) / 2
+
+  for (const root of fresh('[data-switchboard]')) {
+    const note = root.nextElementSibling as HTMLElement
+    const labels = [...root.querySelectorAll<HTMLElement>('[data-label]')]
+    const lines = [...root.querySelectorAll<SVGPathElement>('[data-line]')]
+    const hub = root.querySelector<HTMLElement>('[data-hub]')!
+    const label = (name: string) =>
+      labels.find((el) => el.dataset.label === name)!
+    // The line for `name` in whichever layout is showing.
+    const line = (name: string) =>
+      lines.find(
+        (el) =>
+          el.dataset.line === name &&
+          el.ownerSVGElement!.getClientRects().length,
+      )!
+
+    let picked: { side: string; name: string } | undefined
+    const select = (el?: HTMLElement) => {
+      picked = el && { side: el.dataset.side!, name: el.dataset.label! }
+      root.toggleAttribute('data-active', !!el)
+      for (const l of labels) l.classList.toggle('on', l === el)
+      for (const l of lines)
+        l.classList.toggle('on', l.dataset.line === picked?.name)
+      note.textContent = el?.dataset.note ?? ''
+    }
+    for (const el of labels) {
+      const on = () => select(el)
+      el.addEventListener('pointerenter', on)
+      el.addEventListener('focus', on)
+      el.addEventListener('click', on)
+      el.addEventListener('pointerleave', () => select())
+      el.addEventListener('blur', () => select())
+    }
+
+    if (still) continue
+
+    // A line's length on screen. Its strokes don't scale, so its dashes
+    // are measured in pixels, not in the stretched viewBox's units.
+    const onScreen = (path: SVGPathElement) => {
+      const box = path.ownerSVGElement!.getBoundingClientRect()
+      const length = path.getTotalLength()
+      let total = 0
+      let last = path.getPointAtLength(0)
+      for (let i = 1; i <= 48; i++) {
+        const p = path.getPointAtLength((length * i) / 48)
+        total += Math.hypot(
+          ((p.x - last.x) * box.width) / 100,
+          ((p.y - last.y) * box.height) / 100,
+        )
+        last = p
+      }
+      return total
+    }
+
+    // Runs a streak of light along `path` over `ms`: a short bright head
+    // over a longer, fainter tail, fading in as it leaves and out as it
+    // arrives. Resolves when it gets there.
+    const travel = (path: SVGPathElement, ms: number) =>
+      new Promise<void>((done) => {
+        const total = onScreen(path)
+        const streaks = [
+          { length: 64, width: '3', opacity: 0.16 },
+          { length: 18, width: '1.5', opacity: 0.85 },
+        ].map(({ length, width, opacity }) => {
+          const el = path.cloneNode() as SVGPathElement
+          el.removeAttribute('class')
+          el.removeAttribute('data-line')
+          el.setAttribute('stroke-width', width)
+          el.style.strokeDasharray = `${length} ${total + length}`
+          path.after(el)
+          return { el, length, opacity }
+        })
+        const start = performance.now()
+        const frame = (now: number) => {
+          const t = Math.min((now - start) / ms, 1)
+          const fade = Math.min(1, t * 5, (1 - t) * 5)
+          for (const { el, length, opacity } of streaks) {
+            // From just before the line's start to its end.
+            el.style.strokeDashoffset = String(length - ease(t) * total)
+            el.style.opacity = String(opacity * fade)
+          }
+          if (t < 1) requestAnimationFrame(frame)
+          else {
+            for (const { el } of streaks) el.remove()
+            done()
+          }
+        }
+        requestAnimationFrame(frame)
+      })
+
+    const stats = { ...START }
+    // Rewrites the figures inside `el`, easing in the ones that changed.
+    const refresh = (el: Element) => {
+      for (const stat of el.querySelectorAll<HTMLElement>('[data-stat]')) {
+        const text = SHOW[stat.dataset.stat!](stats)
+        if (stat.textContent === text) continue
+        stat.textContent = text
+        restart(stat, 'settle')
+      }
+      for (const bar of el.querySelectorAll<HTMLElement>('[data-bar]'))
+        bar.style.width = SHOW[bar.dataset.bar!](stats)
+    }
+
+    const bodies = Object.fromEntries(
+      [...root.querySelectorAll<HTMLElement>('[data-body]')].map((el) => [
+        el.dataset.body!,
+        el,
+      ]),
+    )
+    const land = (output: string, page: (typeof PAGES)[number]) => {
+      const [url, status, ms] = page
+      const body = bodies[output]
+      if (output === 'API') {
+        const row = document.createElement('span')
+        row.className = 'block whitespace-nowrap arrive'
+        row.textContent = JSON.stringify({ url, status, ms })
+        body.append(row)
+        while (body.children.length > 3) body.firstElementChild!.remove()
+      } else refresh(body)
+    }
+
+    let n = 0
+    const send = async () => {
+      const input =
+        picked?.side === 'in' ? picked.name : INPUTS[n % INPUTS.length].name
+      const page = PAGES[n % PAGES.length]
+      n++
+      light(label(input))
+      await travel(line(input), IN_MS)
+
+      const [url, status, , rendered] = page
+      stats.pages++
+      stats.current = url
+      if (status >= 400) {
+        stats.errors++
+        stats.missing = url
+      }
+      if (rendered) stats.rendered++
+      light(hub)
+      refresh(hub)
+
+      const outputs =
+        picked?.side === 'out' ? [picked.name] : OUTPUTS.map((o) => o.name)
+      await Promise.all(
+        outputs.map((o, k) =>
+          // A little apart, so they don't all land on the same beat.
+          new Promise((wait) => window.setTimeout(wait, k * 90))
+            .then(() => travel(line(o), OUT_MS))
+            .then(() => land(o, page)),
+        ),
+      )
+    }
+
+    let seen = false
+    new IntersectionObserver(
+      ([entry]) => (seen = entry.isIntersecting),
+    ).observe(root)
+    onReveal(root, () => {
+      send()
+      window.setInterval(() => {
+        if (seen && !document.hidden) send()
+      }, EVERY)
+    })
+  }
+</script>

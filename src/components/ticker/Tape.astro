@@ -1,0 +1,130 @@
+---
+/**
+ * The request log as a ticker tape: requests run right to left in one
+ * unbroken line, like prices across a trading floor, with the edges fading
+ * out. The newest request reads large above it, rolling over as each one
+ * lands. The tape stops while it's hovered; with reduced motion it scrolls
+ * by hand instead.
+ */
+import Figure from '@/components/data/Figure.astro'
+import type { LogEntry } from '@/data/demo'
+import Live from './Live.astro'
+import TickerStyles from './TickerStyles.astro'
+import { line } from './ticker'
+
+interface Props {
+  entries: LogEntry[]
+  /** Requests on the tape before it repeats. */
+  length?: number
+  title?: string
+  caption?: string
+  class?: string
+}
+
+const {
+  entries,
+  length = 24,
+  title = 'Requests',
+  caption,
+  class: className,
+} = Astro.props
+const lines = entries.map(line)
+const tape = lines.slice(0, length)
+const first = lines[0]
+---
+
+<TickerStyles />
+<Figure title={title} caption={caption} class={className} bodyClass="">
+  <Live slot="aside" />
+  <div data-ticker="tape" data-entries={JSON.stringify(lines)}>
+    <div class="px-6 py-8 sm:px-8 sm:py-10" data-now>
+      <p
+        class="truncate font-mono text-2xl tracking-tight sm:text-4xl"
+        aria-live="off"
+      >
+        <span class="text-ink-muted">GET </span><span data-f="path"
+          >{first.path}</span
+        >
+      </p>
+      <p class="mt-4 flex items-center gap-4 font-mono text-xs text-ink-muted">
+        <span class="tk-pill" data-f="status" data-kind={first.kind}
+          >{first.status}</span
+        >
+        <span data-f="worker">{first.worker}</span>
+        <span class="tabular-nums" data-f="ms" data-count>{first.ms}</span>
+      </p>
+    </div>
+    <div class="tk-tape border-t border-line" style={`--n: ${tape.length}`}>
+      {
+        [0, 1].map((copy) => (
+          <ul class="tk-reel" aria-hidden={copy === 1 ? 'true' : undefined}>
+            {tape.map((l) => (
+              <li class="flex items-center gap-2.5 border-r border-line px-5 py-3.5 font-mono text-xs whitespace-nowrap">
+                <span class="tk-pill" data-kind={l.kind}>
+                  {l.status}
+                </span>
+                <span>{l.path}</span>
+                <span class="text-ink-muted tabular-nums">{l.ms}</span>
+              </li>
+            ))}
+          </ul>
+        ))
+      }
+    </div>
+  </div>
+</Figure>
+
+<style>
+  .tk-tape {
+    display: flex;
+    overflow: hidden;
+    mask-image: linear-gradient(
+      90deg,
+      transparent,
+      black 12%,
+      black 88%,
+      transparent
+    );
+  }
+  .tk-reel {
+    display: flex;
+    flex: none;
+    animation: tk-reel calc(var(--n) * 3.2s) linear infinite;
+  }
+  .tk-tape:hover .tk-reel {
+    animation-play-state: paused;
+  }
+  @keyframes tk-reel {
+    to {
+      transform: translateX(-100%);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tk-tape {
+      overflow-x: auto;
+      mask-image: none;
+    }
+    .tk-reel {
+      animation: none;
+    }
+    .tk-reel + .tk-reel {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  import { fresh } from '@/scripts/data/fresh'
+  import { fill, tick } from '@/scripts/data/ticker'
+  import type { Line } from '@/components/ticker/ticker'
+
+  for (const root of fresh('[data-ticker="tape"]')) {
+    const data: Line[] = JSON.parse(root.dataset.entries!)
+    const now = root.querySelector<HTMLElement>('[data-now]')!
+    let next = 1
+
+    tick(root, 2400, 3400, () =>
+      fill(now, data[next++ % data.length], { gap: 90, stagger: 22 }),
+    )
+  }
+</script>

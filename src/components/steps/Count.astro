@@ -1,0 +1,82 @@
+---
+/**
+ * The steps told by what each leaves you with: one URL becomes a queue,
+ * the queue becomes the pages you kept, and those become answers. Each
+ * figure counts up in turn when the row scrolls into view; without script
+ * or with reduced motion they show their final values.
+ */
+import { STEPS } from '@/data/steps'
+
+interface Props {
+  class?: string
+}
+const { class: className } = Astro.props
+
+const format = new Intl.NumberFormat('en-GB')
+---
+
+<div class:list={[className]} data-count-steps data-reveal>
+  <p class="font-mono text-sm text-ink-muted">
+    <span class="text-ink">1 URL</span> in
+  </p>
+  <ol
+    class="mt-6 grid gap-px overflow-hidden rounded-card border border-line bg-line md:grid-cols-3"
+  >
+    {
+      STEPS.map((step, i) => (
+        <li class="relative flex flex-col bg-surface p-6 sm:p-8">
+          <span
+            class="text-5xl font-semibold tracking-tight tabular-nums sm:text-6xl"
+            data-to={step.stat.value}
+          >
+            {format.format(step.stat.value)}
+          </span>
+          <span class="mt-1 text-ink-muted">{step.stat.unit}</span>
+          <h3 class="mt-8 font-semibold">
+            <span class="font-mono text-ink-muted">{i + 1}</span> {step.title}
+          </h3>
+          <p class="mt-1 text-sm text-ink-muted">{step.body}</p>
+          {i < STEPS.length - 1 && (
+            <span
+              class="absolute z-10 grid size-8 place-items-center rounded-full border border-line bg-surface font-mono text-sm text-ink-muted max-md:-bottom-4 max-md:left-1/2 max-md:-translate-x-1/2 max-md:rotate-90 md:top-1/2 md:-right-4 md:-translate-y-1/2"
+              aria-hidden="true"
+            >
+              →
+            </span>
+          )}
+        </li>
+      ))
+    }
+  </ol>
+</div>
+
+<script>
+  import { fresh } from '@/scripts/data/fresh'
+  import { onReveal, scan, still } from '@/scripts/data/reveal'
+
+  // Not in a Figure, so watch for the reveal here.
+  queueMicrotask(scan)
+
+  const format = new Intl.NumberFormat('en-GB')
+  const DURATION = 1200
+
+  for (const root of fresh('[data-count-steps]')) {
+    if (still) continue
+    const figures = [...root.querySelectorAll<HTMLElement>('[data-to]')]
+    figures.forEach((el) => (el.textContent = '0'))
+
+    onReveal(root, () =>
+      figures.forEach((el, i) => {
+        const to = Number(el.dataset.to)
+        const start = performance.now() + i * 500
+        const tick = (now: number) => {
+          const t = Math.min(Math.max((now - start) / DURATION, 0), 1)
+          // Ease out, so it settles onto the final value.
+          el.textContent = format.format(Math.round(to * (1 - (1 - t) ** 3)))
+          if (t < 1) requestAnimationFrame(tick)
+        }
+        requestAnimationFrame(tick)
+      }),
+    )
+  }
+</script>

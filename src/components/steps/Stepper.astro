@@ -1,0 +1,133 @@
+---
+/**
+ * The steps as tabs over one panel. A bar along the top of the active tab
+ * fills while it's shown, then hands over to the next step, so the process
+ * plays itself through; the first click stops it there. Static, showing the
+ * first step, without script or with reduced motion.
+ */
+import Snippet from './Snippet.astro'
+import { STEPS } from '@/data/steps'
+
+interface Props {
+  class?: string
+}
+const { class: className } = Astro.props
+---
+
+<div class:list={[className]} data-stepper data-reveal>
+  <div class="grid grid-cols-3 gap-3" role="tablist" aria-label="Steps">
+    {
+      STEPS.map((step, i) => (
+        <button
+          type="button"
+          role="tab"
+          id={`stepper-tab-${i}`}
+          aria-selected={i === 0 ? 'true' : 'false'}
+          tabindex={i === 0 ? 0 : -1}
+          class="tab group text-left text-ink-muted transition-colors hover:text-ink"
+          data-tab={i}
+        >
+          <span class="relative block h-px overflow-hidden bg-line">
+            <span class="bar absolute inset-0 origin-left bg-ink" />
+          </span>
+          <span class="mt-4 block font-mono text-sm">{i + 1}</span>
+          <span class="mt-1 block font-semibold sm:text-lg">{step.title}</span>
+        </button>
+      ))
+    }
+  </div>
+
+  <div class="mt-10">
+    {
+      STEPS.map((step, i) => (
+        <div
+          role="tabpanel"
+          aria-labelledby={`stepper-tab-${i}`}
+          hidden={i !== 0}
+          class="grid items-center gap-6 md:grid-cols-[1fr_1.2fr] md:gap-12"
+          data-panel={i}
+        >
+          <p class="text-lg text-ink-muted">{step.body}</p>
+          <Snippet lines={step.snippet} class="px-6 py-5 sm:text-sm" />
+        </div>
+      ))
+    }
+  </div>
+</div>
+
+<style>
+  .bar {
+    transform: scaleX(0);
+  }
+  .tab[aria-selected='true'] {
+    color: var(--color-ink);
+  }
+  .tab[aria-selected='true'] .bar {
+    transform: none;
+  }
+  .tab.playing .bar {
+    animation: fill var(--hold) linear forwards;
+  }
+  @keyframes fill {
+    from {
+      transform: scaleX(0);
+    }
+  }
+</style>
+
+<script>
+  import { fresh } from '@/scripts/data/fresh'
+  import { onReveal, scan, still } from '@/scripts/data/reveal'
+
+  // Not in a Figure, so watch for the reveal here.
+  queueMicrotask(scan)
+
+  const HOLD = 5000
+
+  for (const root of fresh('[data-stepper]')) {
+    const tabs = [...root.querySelectorAll<HTMLButtonElement>('[data-tab]')]
+    const panels = [...root.querySelectorAll<HTMLElement>('[data-panel]')]
+    root.style.setProperty('--hold', `${HOLD}ms`)
+    let current = 0
+    let auto = !still
+    let timer: number | undefined
+
+    const show = (i: number, focus = false) => {
+      current = i
+      tabs.forEach((tab, j) => {
+        tab.setAttribute('aria-selected', String(j === i))
+        tab.tabIndex = j === i ? 0 : -1
+        tab.classList.remove('playing')
+      })
+      panels.forEach((panel, j) => (panel.hidden = j !== i))
+      if (focus) tabs[i].focus()
+      if (!auto) return
+      // Restart the bar's fill from empty.
+      void tabs[i].offsetWidth
+      tabs[i].classList.add('playing')
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => show((i + 1) % tabs.length), HOLD)
+    }
+
+    const stopAuto = () => {
+      auto = false
+      window.clearTimeout(timer)
+    }
+
+    tabs.forEach((tab, i) =>
+      tab.addEventListener('click', () => {
+        stopAuto()
+        show(i)
+      }),
+    )
+    root.addEventListener('keydown', (event) => {
+      const delta = { ArrowRight: 1, ArrowLeft: -1 }[event.key]
+      if (!delta || !(event.target as HTMLElement).dataset.tab) return
+      event.preventDefault()
+      stopAuto()
+      show((current + delta + tabs.length) % tabs.length, true)
+    })
+
+    if (auto) onReveal(root, () => show(0))
+  }
+</script>

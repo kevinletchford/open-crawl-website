@@ -1,0 +1,33 @@
+---
+/**
+ * CTA variant 1: no form at all. A centred headline, one line of copy and a
+ * button through to /invite, where the full form lives.
+ */
+import CtaBand from '@/components/cta/CtaBand.astro'
+
+interface Props {
+  heading?: string
+}
+
+const { heading = 'OpenCrawl is invite-only, for now.' } = Astro.props
+---
+
+<CtaBand>
+  <div class="mx-auto max-w-2xl text-center">
+    <h2 class="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+      {heading}
+    </h2>
+    <p class="mx-auto mt-5 max-w-md text-lg text-pretty text-ink-muted">
+      We’re onboarding teams in small batches so every crawl gets our full
+      attention.
+    </p>
+    <div class="mt-10 flex flex-wrap items-center justify-center gap-3">
+      <a href="/invite" class="btn btn-primary px-6 py-3 text-base">
+        Request an invite
+      </a>
+      <a href="/benchmarks" class="btn btn-ghost px-6 py-3 text-base">
+        See the benchmarks
+      </a>
+    </div>
+  </div>
+</CtaBand>

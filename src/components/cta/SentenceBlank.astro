@@ -1,0 +1,121 @@
+---
+/**
+ * One fill-in-the-blank field for the sentence CTAs: an input that sits in a
+ * line of copy and grows with what's typed, with a visually hidden label.
+ *
+ * Astro strips the whitespace around inline elements, so the blank carries
+ * its own spacing. Pass `tight` when punctuation follows it.
+ *
+ * Pass `reserve` for a field a password manager decorates: LastPass and
+ * friends pin their icon inside the input's right edge, which on a blank
+ * that fits its text lands on the text. A reserving blank is sized by the
+ * script below instead, to its text plus an empty slot at the end for the
+ * icon. The slot is width, not padding: LastPass sits its icon inside the
+ * padding, so padding would only push it back onto the text. Until the
+ * script runs (or without it) the blank fits its placeholder.
+ */
+interface Props {
+  id: string
+  name: string
+  label: string
+  placeholder: string
+  type?: 'text' | 'email'
+  required?: boolean
+  maxlength?: number
+  autocomplete?: string
+  inputmode?: 'url' | 'email'
+  look?: 'underline' | 'chip' | 'mono'
+  tight?: boolean
+  reserve?: boolean
+  class?: string
+}
+
+const {
+  id,
+  name,
+  label,
+  placeholder,
+  type = 'text',
+  required = false,
+  maxlength = 120,
+  autocomplete,
+  inputmode,
+  look = 'underline',
+  tight = false,
+  reserve = false,
+  class: className,
+} = Astro.props
+
+/** The room left at the end of a reserving blank for a password manager. */
+const SLOT = '2.5em'
+
+const looks = {
+  underline:
+    'border-b-2 border-white/25 px-0.5 hover:border-white/50 focus:border-white',
+  chip: 'rounded-full bg-white/[0.08] px-[0.55em] py-[0.05em] ring-1 ring-white/10 hover:bg-white/[0.12] focus:bg-white/[0.12] focus:ring-white/50',
+  mono: 'border-b border-dashed border-white/30 px-0.5 hover:border-white/60 focus:border-solid focus:border-white',
+}
+
+const reserved = reserve
+  ? { width: `calc(${placeholder.length}ch + ${SLOT})` }
+  : undefined
+---
+
+<label class="sr-only" for={id}>{label}{required && ' (required)'}</label><input
+  id={id}
+  class:list={[
+    'ml-[0.3em] inline-block min-w-[6ch] bg-transparent py-0 align-baseline leading-tight text-ink transition-colors placeholder:text-white/30 focus:outline-none',
+    looks[look],
+    reserve ? 'max-w-full' : '[field-sizing:content]',
+    !tight && 'mr-[0.3em]',
+    className,
+  ]}
+  type={type}
+  name={name}
+  required={required}
+  maxlength={maxlength}
+  autocomplete={autocomplete}
+  inputmode={inputmode}
+  placeholder={placeholder}
+  style={reserved}
+  data-reserve={reserve ? SLOT : undefined}
+/>
+
+<script>
+  // Grow each reserving blank to its text (or, empty, its placeholder) plus
+  // the slot it keeps clear. The text is measured by a hidden copy beside
+  // the field (`ch` and canvas both guess wrong for some font stacks). The
+  // copy inherits the field's font rather than having it copied on: where
+  // the stylesheet lands after this runs (Storybook), a copied font would
+  // be the browser default for good. Padding is measured too, since a
+  // password manager may add its own.
+  for (const input of document.querySelectorAll<HTMLInputElement>(
+    '[data-reserve]',
+  )) {
+    const mirror = document.createElement('span')
+    mirror.setAttribute('aria-hidden', 'true')
+    mirror.style.cssText =
+      'position:absolute;visibility:hidden;white-space:pre;pointer-events:none'
+    input.after(mirror)
+
+    const fit = () => {
+      const style = getComputedStyle(input)
+      mirror.textContent = input.value || input.placeholder
+      const text = mirror.getBoundingClientRect().width
+      if (!text) return // Hidden (mid-animation, say); measured once shown.
+      const edges =
+        parseFloat(style.paddingLeft) +
+        parseFloat(style.paddingRight) +
+        parseFloat(style.borderLeftWidth) +
+        parseFloat(style.borderRightWidth)
+      input.style.width = `calc(${Math.ceil(text + edges)}px + ${input.dataset.reserve})`
+    }
+    input.addEventListener('input', fit)
+    // Autofill doesn't always fire `input`.
+    input.addEventListener('change', fit)
+    // Fires once laid out, again when a hidden blank is shown, and when the
+    // stylesheet or webfont arrives.
+    new ResizeObserver(fit).observe(mirror)
+    void document.fonts.ready.then(fit)
+  }
+</script>

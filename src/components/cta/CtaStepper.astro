@@ -1,0 +1,280 @@
+---
+/**
+ * CTA variant 3: one question at a time, the way Google's sign-in works.
+ * Email first, then name and company, then role and site. The card stays
+ * small whatever step it is on, and it only POSTs once, at the end: the
+ * Worker ignores a second row for the same email, so saving the email early
+ * would lose the answers that follow.
+ *
+ * Without JavaScript every step shows at once, as one ordinary form.
+ */
+import CtaBand from '@/components/cta/CtaBand.astro'
+import { ROLES } from '@/data/invite'
+
+interface Props {
+  heading?: string
+  id?: string
+}
+
+const { heading = 'OpenCrawl is invite-only, for now.', id = 'cta-stepper' } =
+  Astro.props
+
+const input =
+  'peer block w-full rounded-xl border border-white/[0.06] bg-white/[0.06] px-5 pt-7 pb-3 text-base text-ink transition-colors placeholder:text-transparent hover:bg-white/[0.09] focus:border-white/40 focus:bg-white/[0.09] focus:outline-none'
+const label =
+  'pointer-events-none absolute top-[1.15rem] left-5 text-base text-white/55 transition-all peer-focus:top-2.5 peer-focus:text-xs peer-[:not(:placeholder-shown)]:top-2.5 peer-[:not(:placeholder-shown)]:text-xs'
+---
+
+<CtaBand focus="left">
+  <div
+    class="grid items-center gap-12 lg:grid-cols-[1fr_minmax(0,26rem)] lg:gap-20"
+  >
+    <div>
+      <h2
+        class="text-4xl font-semibold tracking-tight text-balance sm:text-5xl"
+      >
+        {heading}
+      </h2>
+      <p class="mt-5 max-w-md text-lg text-ink-muted">
+        We’re onboarding teams in small batches so every crawl gets our full
+        attention. It takes three quick answers.
+      </p>
+    </div>
+
+    <div
+      data-stepper
+      class="rounded-[1.25rem] border border-white/10 bg-night-alt p-7 shadow-[0_40px_120px_-40px_rgba(0,0,0,0.9)] sm:p-8"
+    >
+      <form method="post" action="/api/invite" novalidate>
+        <div data-progress hidden class="mb-7 flex gap-1.5" aria-hidden="true">
+          {
+            [0, 1, 2].map(() => (
+              <span class="h-0.5 flex-1 rounded-full bg-white/15 transition-colors data-[on]:bg-white" />
+            ))
+          }
+        </div>
+
+        <fieldset data-step class="cta-step grid gap-5">
+          <legend class="mb-5 text-xl font-semibold tracking-tight">
+            Start with your work email
+          </legend>
+          <div class="relative">
+            <input
+              id={`${id}-email`}
+              class={input}
+              type="email"
+              name="email"
+              required
+              maxlength={254}
+              autocomplete="email"
+              placeholder="Work email"
+            />
+            <label for={`${id}-email`} class={label}>Work email</label>
+          </div>
+          <button
+            type="button"
+            data-next
+            hidden
+            class="btn btn-primary w-full py-3 text-base"
+          >
+            Continue
+          </button>
+        </fieldset>
+
+        <fieldset data-step class="cta-step mt-8 grid gap-5">
+          <legend class="mb-5 text-xl font-semibold tracking-tight">
+            Who should we address it to?
+          </legend>
+          <button
+            type="button"
+            data-back
+            hidden
+            class="-mt-1 flex w-fit items-center gap-2 rounded-full border border-white/15 py-1 pr-3 pl-1.5 text-sm text-white/75 transition-colors hover:border-white/40"
+          >
+            <span
+              class="grid size-5 place-items-center rounded-full bg-white/15 text-[0.65rem] font-semibold uppercase"
+              data-email-initial></span>
+            <span data-email-echo></span>
+            <span class="sr-only">, change email</span>
+          </button>
+          <div class="relative">
+            <input
+              id={`${id}-name`}
+              class={input}
+              type="text"
+              name="name"
+              maxlength={120}
+              autocomplete="name"
+              placeholder="Name"
+            />
+            <label for={`${id}-name`} class={label}>Name</label>
+          </div>
+          <div class="relative">
+            <input
+              id={`${id}-company`}
+              class={input}
+              type="text"
+              name="company"
+              maxlength={120}
+              autocomplete="organization"
+              placeholder="Company"
+            />
+            <label for={`${id}-company`} class={label}>Company</label>
+          </div>
+          <button
+            type="button"
+            data-next
+            hidden
+            class="btn btn-primary w-full py-3 text-base"
+          >
+            Continue
+          </button>
+        </fieldset>
+
+        <fieldset data-step class="cta-step mt-8 grid gap-5">
+          <legend class="mb-5 text-xl font-semibold tracking-tight">
+            What will you be crawling?
+          </legend>
+          <div class="relative">
+            <input
+              id={`${id}-website`}
+              class={input}
+              type="text"
+              name="website"
+              maxlength={2048}
+              autocomplete="url"
+              inputmode="url"
+              placeholder="Website"
+            />
+            <label for={`${id}-website`} class={label}>Website</label>
+          </div>
+          <div
+            class="flex flex-wrap gap-2"
+            role="radiogroup"
+            aria-label="Your role"
+          >
+            {
+              ROLES.map((role) => (
+                <label class="cursor-pointer">
+                  <input
+                    type="radio"
+                    name="role"
+                    value={role.value}
+                    class="peer sr-only"
+                  />
+                  <span class="block rounded-full border border-white/20 px-3.5 py-1.5 text-sm text-white/75 transition-colors peer-checked:border-white peer-checked:bg-white peer-checked:text-black peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-white hover:border-white/50">
+                    {role.label}
+                  </span>
+                </label>
+              ))
+            }
+          </div>
+          <button
+            type="submit"
+            class="btn btn-primary mt-2 w-full py-3 text-base"
+          >
+            Request an invite
+          </button>
+        </fieldset>
+
+        <div class="absolute -left-[9999px]" aria-hidden="true">
+          <label
+            >Company URL <input
+              type="text"
+              name="company_url"
+              tabindex="-1"
+              autocomplete="off"
+            /></label
+          >
+        </div>
+
+        <p
+          data-invite-error
+          role="alert"
+          hidden
+          class="mt-4 text-center text-sm font-medium"
+        >
+        </p>
+        <p class="mt-5 text-center text-xs text-white/50">
+          We’ll only use your email to send your invite.
+        </p>
+      </form>
+
+      <div data-invite-done hidden tabindex="-1" class="focus:outline-none">
+        <p class="text-2xl font-semibold tracking-tight">You’re on the list.</p>
+        <p class="mt-2 text-white/75">
+          We’re letting people in a few at a time. Watch your inbox for an
+          invite.
+        </p>
+      </div>
+    </div>
+  </div>
+</CtaBand>
+
+<style>
+  .cta-step:not([hidden]) {
+    animation: cta-step-in 260ms ease-out;
+  }
+  @keyframes cta-step-in {
+    from {
+      opacity: 0;
+      transform: translateX(12px);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cta-step:not([hidden]) {
+      animation: none;
+    }
+  }
+</style>
+
+<script>
+  import { wireInviteSubmit } from '@/scripts/invite-submit'
+
+  for (const root of document.querySelectorAll<HTMLElement>('[data-stepper]')) {
+    const form = root.querySelector('form')!
+    const steps = [...root.querySelectorAll<HTMLFieldSetElement>('[data-step]')]
+    const bars = [...root.querySelectorAll<HTMLElement>('[data-progress] span')]
+    const email = form.elements.namedItem('email') as HTMLInputElement
+    let current = 0
+
+    const show = (index: number, focus = true) => {
+      current = index
+      steps.forEach((step, i) => {
+        step.hidden = i !== index
+        step.classList.remove('mt-8')
+      })
+      bars.forEach((bar, i) => bar.toggleAttribute('data-on', i <= index))
+      root.querySelector<HTMLElement>('[data-email-echo]')!.textContent =
+        email.value
+      root.querySelector<HTMLElement>('[data-email-initial]')!.textContent =
+        email.value.charAt(0)
+      if (focus) steps[index].querySelector('input')?.focus()
+    }
+
+    const advance = () => {
+      const fields = [...steps[current].querySelectorAll('input')]
+      if (fields.every((f) => f.reportValidity())) show(current + 1)
+    }
+
+    root.querySelector<HTMLElement>('[data-progress]')!.hidden = false
+    root
+      .querySelectorAll<HTMLElement>('[data-next], [data-back]')
+      .forEach((el) => (el.hidden = false))
+    root
+      .querySelectorAll('[data-next]')
+      .forEach((b) => b.addEventListener('click', advance))
+    root.querySelector('[data-back]')!.addEventListener('click', () => show(0))
+
+    // Enter on an early step moves on rather than sending a half-filled form.
+    form.addEventListener('submit', (event) => {
+      if (current < steps.length - 1) {
+        event.preventDefault()
+        event.stopImmediatePropagation()
+        advance()
+      }
+    })
+    wireInviteSubmit(root)
+    show(0, false)
+  }
+</script>

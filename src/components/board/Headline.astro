@@ -1,0 +1,87 @@
+---
+/**
+ * One request at a time, large: the page being fetched on big tiles, and
+ * what came back on a line of small ones beneath. Like the single-train
+ * indicator at the end of a platform.
+ */
+import Figure from '@/components/data/Figure.astro'
+import type { LogEntry } from '@/data/demo'
+import FlapText from './FlapText.astro'
+import { type Column, fitStyle, startTime, values } from './board'
+
+interface Props {
+  entries: LogEntry[]
+  class?: string
+}
+
+const { entries, class: className } = Astro.props
+
+const PATH: Column[] = [{ key: 'path', head: 'Path', width: 20 }]
+const DETAIL: Column[] = [
+  { key: 'status', head: 'Status', width: 3 },
+  { key: 'ms', head: 'Took', width: 5, align: 'right' },
+  { key: 'worker', head: 'Worker', width: 2, mobile: 0 },
+  { key: 'time', head: 'Time', width: 8, mobile: 0, muted: true },
+]
+const data = entries.map(values)
+const first: Record<string, string> = { ...data[0], time: startTime(0) }
+---
+
+<Figure
+  title="Requests"
+  class={className}
+  bodyClass="px-6 py-8 sm:px-10 sm:py-10"
+>
+  <div
+    class="flap-board space-y-8"
+    data-board="headline"
+    data-entries={JSON.stringify(data)}
+  >
+    <div class="flap-fit font-mono" style={fitStyle(PATH, 44)}>
+      <FlapText col="path" text={first.path} width={20} />
+    </div>
+    <div
+      class="flap-fit flex justify-between font-mono"
+      style={fitStyle(DETAIL, 15)}
+    >
+      {
+        DETAIL.map((col) => (
+          <div
+            class:list={[
+              'flex flex-col gap-[0.5em]',
+              col.mobile === 0 && 'max-sm:hidden',
+              col.align === 'right' && 'items-end',
+            ]}
+          >
+            <FlapText
+              col={col.key}
+              text={first[col.key]}
+              width={col.width}
+              align={col.align}
+              muted={col.muted}
+            />
+            <span class="font-sans text-xs text-ink-muted">{col.head}</span>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</Figure>
+
+<script>
+  import { fresh } from '@/scripts/data/fresh'
+  import { clock, every, row, writeRow } from '@/scripts/data/flap'
+
+  for (const root of fresh('[data-board="headline"]')) {
+    const data: Record<string, string>[] = JSON.parse(root.dataset.entries!)
+    const [path, ...detail] = row(root)
+    let next = 1
+
+    every(root, 4000, () => {
+      const v = { ...data[next++ % data.length], time: clock() }
+      writeRow([path], v, { stagger: 45, spins: 4, step: 80, settle: 380 })
+      // What came back follows once the path has mostly landed.
+      writeRow(detail, v, { delay: 650, stagger: 35 })
+    })
+  }
+</script>

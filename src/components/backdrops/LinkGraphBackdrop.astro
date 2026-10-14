@@ -1,0 +1,108 @@
+---
+/**
+ * A site's link graph, fanned out from the home page: a radial tree whose
+ * rings are crawl depth. Pages the crawler has read are solid; pages still
+ * queued are outlines, and they thin out towards the edge.
+ *
+ * Use in a `Section`'s `backdrop` slot; position it with `class`.
+ */
+import { mulberry32 } from '@/lib/maze/rng'
+
+interface Props {
+  seed?: number
+  /** Link depth to draw from the home page. */
+  depth?: number
+  class?: string
+}
+
+const { seed = 11, depth = 4, class: className = 'inset-0' } = Astro.props
+
+const SIZE = 1000
+const C = SIZE / 2
+const RING = (SIZE / 2 - 40) / depth
+const rng = mulberry32(seed)
+
+interface Node {
+  x: number
+  y: number
+  level: number
+  read: boolean
+}
+const nodes: Node[] = [{ x: C, y: C, level: 0, read: true }]
+const edges: string[] = []
+
+/** Lay out a node's children in its angular wedge, then recurse. */
+function grow(parent: Node, a0: number, a1: number) {
+  if (parent.level >= depth) return
+  const children = parent.level === 0 ? 6 : 1 + Math.floor(rng() * 4)
+  const span = (a1 - a0) / children
+  for (let i = 0; i < children; i++) {
+    const a = a0 + span * (i + 0.2 + rng() * 0.6)
+    const r = RING * (parent.level + 1)
+    const child: Node = {
+      x: C + r * Math.cos(a),
+      y: C + r * Math.sin(a),
+      level: parent.level + 1,
+      read: parent.read && rng() < 0.75 - parent.level * 0.12,
+    }
+    nodes.push(child)
+    edges.push(
+      `M${parent.x.toFixed(1)} ${parent.y.toFixed(1)}L${child.x.toFixed(1)} ${child.y.toFixed(1)}`,
+    )
+    grow(child, a0 + span * i, a0 + span * (i + 1))
+  }
+}
+const turn = rng() * Math.PI
+grow(nodes[0], turn, turn + Math.PI * 2)
+---
+
+<div
+  class:list={['link-graph pointer-events-none absolute -z-10', className]}
+  aria-hidden="true"
+>
+  <svg
+    viewBox={`0 0 ${SIZE} ${SIZE}`}
+    preserveAspectRatio="xMidYMid slice"
+    class="size-full"
+  >
+    {
+      Array.from({ length: depth }, (_, i) => (
+        <circle
+          cx={C}
+          cy={C}
+          r={RING * (i + 1)}
+          fill="none"
+          stroke="white"
+          stroke-opacity="0.06"
+          stroke-dasharray="2 6"
+        />
+      ))
+    }
+    <path
+      d={edges.join('')}
+      fill="none"
+      stroke="white"
+      stroke-opacity="0.2"
+      stroke-width="1"></path>
+    {
+      nodes.map((node) => (
+        <circle
+          cx={node.x}
+          cy={node.y}
+          r={node.level === 0 ? 9 : 5 - node.level * 0.6}
+          fill={node.read ? 'white' : 'black'}
+          fill-opacity={node.read ? 0.75 - node.level * 0.1 : 1}
+          stroke="white"
+          stroke-opacity={node.read ? 0 : 0.45}
+          stroke-width="1"
+        />
+      ))
+    }
+  </svg>
+</div>
+
+<style>
+  .link-graph {
+    mask-image: radial-gradient(closest-side, #000 55%, transparent);
+  }
+</style>

@@ -13,7 +13,9 @@ const preview: Preview = {
     backgrounds: { disable: true },
     controls: { expanded: true },
     options: {
-      storySort: { order: ['Foundations', 'Data'] },
+      storySort: {
+        order: ['Foundations', 'Forms', 'Sections', 'Backdrops', 'Data'],
+      },
     },
   },
 }

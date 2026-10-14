@@ -1,0 +1,158 @@
+---
+/**
+ * Internal review page: five takes on the invite band at the foot of the
+ * home and product pages. Not linked from the nav, and kept out of search.
+ */
+import Section from '@/components/Section.astro'
+import CtaCommand from '@/components/cta/CtaCommand.astro'
+import CtaButton from '@/components/cta/CtaButton.astro'
+import CtaEmailBar from '@/components/cta/CtaEmailBar.astro'
+import CtaReveal from '@/components/cta/CtaReveal.astro'
+import CtaSentence from '@/components/cta/CtaSentence.astro'
+import CtaStepper from '@/components/cta/CtaStepper.astro'
+import BaseLayout from '@/layouts/BaseLayout.astro'
+
+const sentences = [
+  {
+    variant: 'underline',
+    name: 'Underlined blanks',
+    note: 'The original: left-aligned, the blanks underlined.',
+  },
+  {
+    variant: 'chips',
+    name: 'Pill blanks',
+    note: 'The same sentence, the blanks as soft filled pills so they read as fields sooner.',
+  },
+  {
+    variant: 'centered',
+    name: 'Centred, with the role',
+    note: 'Set larger and centred. The role picker becomes an inline select.',
+  },
+  {
+    variant: 'short',
+    name: 'Email only',
+    note: 'One clause and the button at the end of the line. The least to fill in.',
+  },
+  {
+    variant: 'unfold',
+    name: 'Writes itself in',
+    note: 'Starts as the email clause; a valid email fades in the rest of the sentence.',
+  },
+  {
+    variant: 'command',
+    name: 'As a command',
+    note: 'The sentence as a CLI call, flags for fields.',
+  },
+] as const
+
+const commands = [
+  {
+    variant: 'flags',
+    name: 'Flags',
+    note: 'opencrawl invite with a flag per field, one per line.',
+  },
+  {
+    variant: 'oneline',
+    name: 'One line',
+    note: 'The email as the argument, the site as a flag, Run at the end of the line.',
+  },
+  {
+    variant: 'prompts',
+    name: 'Prompts',
+    note: 'An interactive CLI asking one question at a time: the stepper, as a terminal.',
+  },
+  {
+    variant: 'curl',
+    name: 'curl',
+    note: 'The real request to /api/invite, as you would send it yourself.',
+  },
+  {
+    variant: 'window',
+    name: 'Window',
+    note: 'The flags in a terminal window beside the copy.',
+  },
+  {
+    variant: 'typed',
+    name: 'Typed',
+    note: 'The command types itself in on first sight, then waits for the email.',
+  },
+] as const
+
+const variants = [
+  {
+    name: 'Button only',
+    note: 'No form here at all. One button through to /invite, which already has the full form and the perks list.',
+    Cta: CtaButton,
+  },
+  {
+    name: 'Email bar, then the invite page',
+    note: 'One field with the button inside it. It carries the email over to /invite, prefilled, and the rest is asked there.',
+    Cta: CtaEmailBar,
+  },
+  {
+    name: 'One question at a time',
+    note: 'Google sign-in style: email, then name and company, then site and role. The card stays one field tall.',
+    Cta: CtaStepper,
+  },
+  {
+    name: 'Email bar that opens up',
+    note: 'Starts as the email bar. A valid email unfolds the optional questions beneath it, with a way to skip them.',
+    Cta: CtaReveal,
+  },
+]
+---
+
+<BaseLayout title="Invite CTA" description="Five takes on the invite band.">
+  <meta slot="head" name="robots" content="noindex" />
+
+  <Section innerClass="pt-20 pb-12 sm:pt-28">
+    <h1 class="text-5xl font-semibold tracking-tight text-balance">
+      Five takes on the invite band
+    </h1>
+    <p class="mt-6 max-w-2xl text-lg text-ink-muted">
+      The current band pairs a short headline with a seven-field form, so the
+      form outweighs everything around it. Each of these keeps the same backdrop
+      and copy and changes only how much it asks for up front.
+    </p>
+  </Section>
+
+  {
+    variants.map(({ name, note, Cta }, i) => (
+      <>
+        <Section innerClass="py-10 sm:py-12 border-t border-line">
+          <h2 class="text-2xl font-semibold tracking-tight">
+            {i + 1}. {name}
+          </h2>
+          <p class="mt-2 max-w-2xl text-ink-muted">{note}</p>
+        </Section>
+        <Cta />
+      </>
+    ))
+  }
+
+  {
+    sentences.map(({ variant, name, note }) => (
+      <>
+        <Section innerClass="py-10 sm:py-12 border-t border-line">
+          <h2 class="text-2xl font-semibold tracking-tight">5 · {name}</h2>
+          <p class="mt-2 max-w-2xl text-ink-muted">{note}</p>
+        </Section>
+        <CtaSentence variant={variant} id={`cta-sentence-${variant}`} />
+      </>
+    ))
+  }
+
+  {
+    commands.map(({ variant, name, note }) => (
+      <>
+        <Section innerClass="py-10 sm:py-12 border-t border-line">
+          <h2 class="text-2xl font-semibold tracking-tight">
+            Command · {name}
+          </h2>
+          <p class="mt-2 max-w-2xl text-ink-muted">{note}</p>
+        </Section>
+        <CtaCommand variant={variant} id={`cta-command-${variant}`} />
+      </>
+    ))
+  }
+</BaseLayout>

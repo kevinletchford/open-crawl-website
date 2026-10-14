@@ -1,0 +1,506 @@
+---
+/**
+ * A crawl through a square maze, the polar maze's sibling for sections that
+ * need a backdrop to tile. Every cell is a page and every corridor a link.
+ * Fills follow the rest of the system: readable solid, partial hatch,
+ * blocked outline. Seed pages wear the logo's rings.
+ *
+ * - `flood`: thick walls, with a crawl flooding out from a few seed pages
+ *   that stops at blocked pages, then draining away in the same order.
+ * - `trails`: faint walls, with a few crawls traced as whole corridors and a
+ *   pulse running each one from its seed to the page still queued at its end.
+ * - `tiles`: the walls hidden, every page a tile. The flood still follows the
+ *   maze's links, so it spreads unevenly the way a real crawl does.
+ *
+ * The animated parts (the flood and the trail pulses) are drawn on a 2D canvas
+ * by the script below. Animated in SVG they cost a full repaint of the whole
+ * band every frame, on the main thread, which stalls typing and hovering in
+ * whatever sits on top. The SVG keeps the static parts, plus a still flood
+ * for reduced motion and no JavaScript.
+ *
+ * Use in a `Section`'s `backdrop` slot; position it with `class`.
+ */
+import { generateGridMaze, gridFlood, gridWallsPath } from '@/lib/maze/grid'
+import { mulberry32 } from '@/lib/maze/rng'
+
+interface Props {
+  seed?: number
+  variant?: 'flood' | 'trails' | 'tiles'
+  /** Number of seed pages the crawls start from. */
+  crawls?: number
+  /**
+   * How the edges fade: `radial` on every side, or `left` only, for a
+   * backdrop that runs the full height of a band beside its copy.
+   */
+  fade?: 'radial' | 'left'
+  /** How big the maze's cells are drawn, relative to the default. */
+  scale?: number
+  class?: string
+}
+
+const {
+  seed = 7,
+  variant = 'flood',
+  crawls: count = 3,
+  fade = 'radial',
+  scale = 1,
+  class: className = 'inset-0',
+} = Astro.props
+
+const SIZE = 40
+// More cells in the viewBox at a smaller scale, so each is drawn smaller once
+// it's sliced to fit.
+const cols = Math.round(30 / scale)
+const rows = Math.round(16 / scale)
+const W = cols * SIZE
+const H = rows * SIZE
+/** Seconds per link the flood takes. */
+const STEP_TIME = 0.11
+/** Links in each trail, roughly. */
+const TRAIL = 24
+/** Pulse speed in viewBox units per second. */
+const SPEED = 160
+const rng = mulberry32(seed)
+const maze = generateGridMaze(cols, rows, rng)
+const walls = gridWallsPath(maze, SIZE)
+
+const cellX = (id: number) => (id % cols) * SIZE
+const cellY = (id: number) => Math.floor(id / cols) * SIZE
+const centre = (id: number): [number, number] => [
+  cellX(id) + SIZE / 2,
+  cellY(id) + SIZE / 2,
+]
+
+// Seeds sit in the part of the maze the radial mask leaves visible, spread
+// out so each crawl gets its own patch.
+const visible = (id: number) => {
+  const x = (id % cols) / (cols - 1) - 0.5
+  const y = Math.floor(id / cols) / (rows - 1) - 0.5
+  if (fade === 'left') return x > -0.1 && Math.abs(y) < 0.42
+  return (x / 0.4) ** 2 + (y / 0.36) ** 2 <= 1
+}
+const seeds: number[] = []
+for (let i = 0; seeds.length < count && i < 400; i++) {
+  const id = Math.floor(rng() * cols * rows)
+  const [x, y] = centre(id)
+  const apart = seeds.every((other) => {
+    const [ox, oy] = centre(other)
+    return Math.hypot(x - ox, y - oy) > (W * 0.6) / count
+  })
+  if (visible(id) && apart) seeds.push(id)
+}
+
+type State = 'readable' | 'partial' | 'blocked' | 'error'
+const state: State[] = Array.from({ length: cols * rows }, (_, id) => {
+  if (seeds.includes(id)) return 'readable'
+  const roll = rng()
+  // Blocked pages are rare and never right by a seed, so each crawl gets
+  // going before it hits one.
+  const near = seeds.some(
+    (other) =>
+      Math.hypot(...centre(id).map((v, i) => v - centre(other)[i])) < SIZE * 4,
+  )
+  if (roll < 0.03 && !near) return 'blocked'
+  if (roll < 0.2) return 'partial'
+  if (variant === 'tiles' && roll < 0.25) return 'error'
+  return 'readable'
+})
+const { step } = gridFlood(maze, seeds, (id) => state[id] === 'blocked')
+const maxStep = Math.max(...step)
+
+// The flood: one path per step and state, so each step lands at once. The
+// whole crawl holds for a beat once it has spread, then drains away.
+const flood = new Map<string, { step: number; state: State; d: string }>()
+const inset = variant === 'tiles' ? 5 : 6
+for (let id = 0; id < cols * rows; id++) {
+  if (step[id] < 0) continue
+  const key = `${step[id]}-${state[id]}`
+  const entry = flood.get(key) ?? { step: step[id], state: state[id], d: '' }
+  const s = SIZE - inset * 2
+  entry.d += `M${cellX(id) + inset} ${cellY(id) + inset}h${s}v${s}h${-s}z`
+  flood.set(key, entry)
+}
+const cycle = maxStep * STEP_TIME * 1.8 + 2
+
+// The trails: the route from each seed to the farthest page it can reach
+// without crossing another trail, drawn through the corridor centres.
+const trails: { d: string; length: number; end: number; phase: number }[] = []
+if (variant === 'trails') {
+  const used = new Set<number>()
+  for (const from of seeds) {
+    // Stay inside the visible patch, and stop about TRAIL links out.
+    const own = gridFlood(
+      maze,
+      [from],
+      (id) => (used.has(id) && id !== from) || !visible(id),
+    )
+    let end = from
+    for (let id = 0; id < cols * rows; id++) {
+      if (!visible(id) || used.has(id) || own.step[id] < 0) continue
+      if (Math.abs(own.step[id] - TRAIL) < Math.abs(own.step[end] - TRAIL))
+        end = id
+    }
+    const route: number[] = []
+    for (let id = end; id !== -1; id = own.parent[id]) route.push(id)
+    route.reverse().forEach((id) => used.add(id))
+    // Corner points only, so the path has one segment per straight run.
+    const points = route
+      .filter((id, i) => {
+        if (i === 0 || i === route.length - 1) return true
+        return route[i - 1] - id !== id - route[i + 1]
+      })
+      .map(centre)
+    trails.push({
+      d: 'M' + points.map(([x, y]) => `${x} ${y}`).join('L'),
+      length: (route.length - 1) * SIZE,
+      end,
+      phase: rng(),
+    })
+  }
+}
+const uid = `crawl-grid-${variant}-${seed}`
+
+const animation = JSON.stringify({
+  W,
+  H,
+  cycle,
+  stepTime: STEP_TIME,
+  cells: [...flood.values()],
+  pulses: trails.map((trail) => {
+    const period = trail.length + SPEED * 3
+    return { d: trail.d, dash: SIZE * 2, period, phase: trail.phase }
+  }),
+  speed: SPEED,
+})
+---
+
+<div
+  class:list={[
+    'crawl-grid pointer-events-none absolute -z-10',
+    `fade-${fade}`,
+    className,
+  ]}
+  aria-hidden="true"
+  data-crawl-grid={animation}
+>
+  <canvas class="absolute inset-0 size-full"></canvas>
+  <svg
+    viewBox={`0 0 ${W} ${H}`}
+    preserveAspectRatio="xMidYMid slice"
+    class="relative size-full"
+  >
+    <defs>
+      <pattern
+        id={`${uid}-hatch`}
+        width="6"
+        height="6"
+        patternUnits="userSpaceOnUse"
+        patternTransform="rotate(45)"
+      >
+        <line x1="0" y1="0" x2="0" y2="6" stroke="white" stroke-width="1.5"
+        ></line>
+      </pattern>
+      <pattern
+        id={`${uid}-dots`}
+        width="5"
+        height="5"
+        patternUnits="userSpaceOnUse"
+      >
+        <rect width="1.5" height="1.5" fill="white"></rect>
+      </pattern>
+    </defs>
+
+    {
+      variant === 'tiles' &&
+        Array.from({ length: cols * rows }, (_, id) => (
+          <circle
+            cx={centre(id)[0]}
+            cy={centre(id)[1]}
+            r="1.2"
+            fill="white"
+            opacity="0.14"
+          />
+        ))
+    }
+
+    {
+      variant !== 'trails' && (
+        <g class="crawl-grid-flood">
+          {[...flood.values()].map((cell) => (
+            <path
+              d={cell.d}
+              class:list={['crawl-grid-cell', `is-${cell.state}`]}
+              fill={
+                cell.state === 'partial'
+                  ? `url(#${uid}-hatch)`
+                  : cell.state === 'error'
+                    ? `url(#${uid}-dots)`
+                    : cell.state === 'blocked'
+                      ? 'none'
+                      : 'white'
+              }
+              stroke={cell.state === 'blocked' ? 'white' : undefined}
+            />
+          ))}
+        </g>
+      )
+    }
+
+    {
+      variant !== 'tiles' && (
+        <path
+          d={walls}
+          fill="none"
+          stroke="white"
+          stroke-opacity={variant === 'flood' ? 0.13 : 0.07}
+          stroke-width={variant === 'flood' ? 9 : 3}
+          stroke-linecap="square"
+        />
+      )
+    }
+
+    {
+      trails.map((trail) => {
+        const [ex, ey] = centre(trail.end)
+        return (
+          <g>
+            <path
+              d={trail.d}
+              fill="none"
+              stroke="white"
+              stroke-opacity="0.12"
+              stroke-width="16"
+              stroke-linejoin="round"
+              stroke-linecap="square"
+            />
+            <rect
+              x={ex - 10}
+              y={ey - 10}
+              width="20"
+              height="20"
+              fill="black"
+              stroke="white"
+              stroke-opacity="0.7"
+              stroke-dasharray="3 3"
+            />
+          </g>
+        )
+      })
+    }
+
+    {
+      seeds.map((id) => {
+        const [x, y] = centre(id)
+        return (
+          <g fill="none" stroke="white">
+            <circle cx={x} cy={y} r="13" stroke-width="2.5" opacity="0.75" />
+            <circle cx={x} cy={y} r="6.5" stroke-width="2.5" opacity="0.75" />
+          </g>
+        )
+      })
+    }
+  </svg>
+</div>
+
+<style>
+  /* Its own compositor layer, so the canvas's redraws stay inside it rather
+     than invalidating the page (and the sticky header) above. */
+  .crawl-grid {
+    contain: paint;
+    will-change: transform;
+  }
+  .crawl-grid.fade-radial {
+    mask-image: radial-gradient(ellipse at center, #000 30%, transparent 75%);
+  }
+  .crawl-grid.fade-left {
+    mask-image: linear-gradient(to right, transparent, #000 45%);
+  }
+  .crawl-grid-cell.is-readable {
+    opacity: 0.2;
+  }
+  .crawl-grid-cell.is-partial,
+  .crawl-grid-cell.is-error {
+    opacity: 0.4;
+  }
+  .crawl-grid-cell.is-blocked {
+    opacity: 0.45;
+    stroke-dasharray: 3 3;
+  }
+  /* The canvas takes over the flood once it's running. */
+  .crawl-grid.is-live .crawl-grid-flood {
+    display: none;
+  }
+</style>
+
+<script>
+  interface Cell {
+    d: string
+    step: number
+    state: 'readable' | 'partial' | 'blocked' | 'error'
+  }
+  interface Pulse {
+    d: string
+    dash: number
+    period: number
+    phase: number
+  }
+  interface Animation {
+    W: number
+    H: number
+    cycle: number
+    stepTime: number
+    cells: Cell[]
+    pulses: Pulse[]
+    speed: number
+  }
+
+  /** Frames per second; the flood steps every 0.11s, so this is plenty. */
+  const FPS = 30
+  const easeOut = (u: number) => 1 - (1 - u) * (1 - u)
+
+  /**
+   * The flood keyframes: a page lands bright, settles, and drains once the
+   * whole crawl has had its moment.
+   */
+  function floodOpacity(t: number, peak: number) {
+    if (t < 0.02) return 0.6 * easeOut(t / 0.02)
+    if (t < 0.08) return 0.6 + (peak - 0.6) * easeOut((t - 0.02) / 0.06)
+    if (t < 0.62) return peak
+    if (t < 0.72) return peak * (1 - easeOut((t - 0.62) / 0.1))
+    return 0
+  }
+
+  function tile(size: number, draw: (ctx: CanvasRenderingContext2D) => void) {
+    // Drawn at 4x and scaled back, so the pattern stays crisp.
+    const raster = document.createElement('canvas')
+    raster.width = raster.height = size * 4
+    const ctx = raster.getContext('2d')!
+    ctx.scale(4, 4)
+    ctx.fillStyle = 'white'
+    draw(ctx)
+    return raster
+  }
+
+  function start(root: HTMLElement) {
+    const canvas = root.querySelector('canvas')!
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    const data: Animation = JSON.parse(root.dataset.crawlGrid!)
+    const cells = data.cells.map((cell) => ({
+      ...cell,
+      path: new Path2D(cell.d),
+    }))
+    const pulses = data.pulses.map((pulse) => ({
+      ...pulse,
+      path: new Path2D(pulse.d),
+      duration: pulse.period / data.speed,
+    }))
+
+    const hatch = ctx.createPattern(
+      tile(6, (c) => c.fillRect(0, 0, 1.5, 6)),
+      'repeat',
+    )!
+    hatch.setTransform(new DOMMatrix().rotate(45).scale(0.25))
+    const dots = ctx.createPattern(
+      tile(5, (c) => c.fillRect(0, 0, 1.5, 1.5)),
+      'repeat',
+    )!
+    dots.setTransform(new DOMMatrix().scale(0.25))
+
+    // Matches the SVG's preserveAspectRatio="xMidYMid slice".
+    let transform = new DOMMatrix()
+    const resize = () => {
+      const scale = Math.min(window.devicePixelRatio, 2)
+      const w = Math.round(canvas.clientWidth * scale)
+      const h = Math.round(canvas.clientHeight * scale)
+      canvas.width = Math.max(1, w)
+      canvas.height = Math.max(1, h)
+      const s = Math.max(w / data.W, h / data.H)
+      transform = new DOMMatrix([
+        s,
+        0,
+        0,
+        s,
+        (w - data.W * s) / 2,
+        (h - data.H * s) / 2,
+      ])
+    }
+
+    const draw = (seconds: number) => {
+      ctx.setTransform(1, 0, 0, 1, 0, 0)
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      ctx.setTransform(transform)
+
+      for (const cell of cells) {
+        const elapsed = seconds - cell.step * data.stepTime
+        if (elapsed < 0) continue
+        const t = (elapsed % data.cycle) / data.cycle
+        const opacity = floodOpacity(t, cell.state === 'readable' ? 0.2 : 0.45)
+        if (opacity <= 0) continue
+        ctx.globalAlpha = opacity
+        if (cell.state === 'blocked') {
+          ctx.setLineDash([3, 3])
+          ctx.lineWidth = 1
+          ctx.strokeStyle = 'white'
+          ctx.stroke(cell.path)
+          ctx.setLineDash([])
+          continue
+        }
+        ctx.fillStyle =
+          cell.state === 'partial'
+            ? hatch
+            : cell.state === 'error'
+              ? dots
+              : 'white'
+        ctx.fill(cell.path)
+      }
+
+      ctx.globalAlpha = 0.55
+      ctx.strokeStyle = 'white'
+      ctx.lineWidth = 16
+      ctx.lineJoin = 'round'
+      for (const pulse of pulses) {
+        const t = (seconds / pulse.duration + pulse.phase) % 1
+        ctx.setLineDash([pulse.dash, pulse.period - pulse.dash])
+        ctx.lineDashOffset = pulse.dash - pulse.period * t
+        ctx.stroke(pulse.path)
+      }
+      ctx.setLineDash([])
+      ctx.globalAlpha = 1
+    }
+
+    let frame = 0
+    let last = 0
+    let visible = false
+    const origin = performance.now()
+    const loop = (now: number) => {
+      frame = requestAnimationFrame(loop)
+      if (now - last < 1000 / FPS) return
+      last = now
+      draw((now - origin) / 1000)
+    }
+    const sync = () => {
+      cancelAnimationFrame(frame)
+      if (visible && !document.hidden) frame = requestAnimationFrame(loop)
+    }
+
+    new ResizeObserver(() => {
+      resize()
+      draw((performance.now() - origin) / 1000)
+    }).observe(canvas)
+    new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting
+      sync()
+    }).observe(root)
+    document.addEventListener('visibilitychange', sync)
+    root.classList.add('is-live')
+  }
+
+  // With reduced motion the SVG's still flood stays instead.
+  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    for (const root of document.querySelectorAll<HTMLElement>(
+      '[data-crawl-grid]',
+    ))
+      start(root)
+  }
+</script>

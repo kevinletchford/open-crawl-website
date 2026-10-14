@@ -1,0 +1,121 @@
+---
+/**
+ * The "why another crawler" section: a heading, an intro and three problems
+ * from `src/data/problems.ts`, in one of five treatments:
+ *
+ * - `mazes`: a small polar maze above each problem.
+ * - `icons`: an icon in an outlined tile above each problem.
+ * - `cards`: the problems as cells of one bordered grid.
+ * - `split`: the heading on the left, the problems as rows on the right.
+ * - `centered`: everything centred, icons in rings.
+ *
+ * Content only; wrap it in a `Section` for the band.
+ */
+import Icon from './Icon.astro'
+import MazeSvg from './MazeSvg.astro'
+import { PROBLEMS, PROBLEMS_HEADING, PROBLEMS_INTRO } from '@/data/problems'
+
+interface Props {
+  variant?: 'mazes' | 'icons' | 'cards' | 'split' | 'centered'
+  heading?: string
+  intro?: string
+  class?: string
+}
+
+const {
+  variant = 'mazes',
+  heading = PROBLEMS_HEADING,
+  intro = PROBLEMS_INTRO,
+  class: className,
+} = Astro.props
+---
+
+{
+  variant === 'split' ? (
+    <div
+      class:list={['grid gap-12 lg:grid-cols-[2fr_3fr] lg:gap-20', className]}
+    >
+      <div class="lg:sticky lg:top-28 lg:self-start">
+        <h2 class="text-4xl font-semibold tracking-tight text-balance">
+          {heading}
+        </h2>
+        <p class="mt-4 text-lg text-ink-muted">{intro}</p>
+      </div>
+      <ul class="divide-y divide-line border-y border-line">
+        {PROBLEMS.map((problem) => (
+          <li class="flex gap-5 py-8">
+            <Icon
+              name={problem.icon}
+              size={24}
+              class="mt-0.5 shrink-0 text-ink/80"
+            />
+            <div>
+              <h3 class="text-lg font-semibold">{problem.title}</h3>
+              <p class="mt-2 text-ink-muted">{problem.body}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  ) : (
+    <div class={className}>
+      <div
+        class:list={[
+          'max-w-2xl',
+          variant === 'centered' && 'mx-auto text-center',
+        ]}
+      >
+        <h2 class="text-4xl font-semibold tracking-tight text-balance">
+          {heading}
+        </h2>
+        <p class="mt-4 text-lg text-ink-muted">{intro}</p>
+      </div>
+
+      {variant === 'cards' ? (
+        <div class="mt-14 grid gap-px overflow-hidden rounded-card border border-line bg-line md:grid-cols-3">
+          {PROBLEMS.map((problem) => (
+            <div class="bg-surface p-8">
+              <Icon name={problem.icon} size={24} class="text-ink/80" />
+              <h3 class="mt-6 font-semibold">{problem.title}</h3>
+              <p class="mt-2 text-sm leading-relaxed text-ink-muted">
+                {problem.body}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div
+          class:list={[
+            'mt-14 grid gap-10 md:grid-cols-3',
+            variant === 'centered' && 'text-center md:gap-14',
+          ]}
+        >
+          {PROBLEMS.map((problem, i) => (
+            <div>
+              {variant === 'mazes' && (
+                <MazeSvg
+                  seed={11 + i}
+                  rings={2}
+                  cellLength={2.2}
+                  class="size-12 text-ink"
+                />
+              )}
+              {variant === 'icons' && (
+                <div class="grid size-12 place-items-center rounded-lg border border-line bg-surface-alt">
+                  <Icon name={problem.icon} size={24} class="text-ink/80" />
+                </div>
+              )}
+              {variant === 'centered' && (
+                <div class="mx-auto grid size-14 place-items-center rounded-full border border-line">
+                  <Icon name={problem.icon} size={24} class="text-ink/80" />
+                </div>
+              )}
+              <h3 class="mt-5 text-lg font-semibold">{problem.title}</h3>
+              <p class="mt-2 text-ink-muted">{problem.body}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}

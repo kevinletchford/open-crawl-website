@@ -1,0 +1,115 @@
+---
+/**
+ * A polar maze that a crawl floods on load, one link at a time from the
+ * doorway, in the site maze's style (data/SiteMaze.astro): faint walls,
+ * readable pages solid, partial ones (a share picked at random) in a
+ * diagonal hatch. The fill colour is `currentColor`.
+ */
+import { cellFloorPath, crawl, generateMaze, mazeWallsPath } from '@/lib/maze'
+import { mulberry32 } from '@/lib/maze/rng'
+
+interface Props {
+  seed: number
+  rings?: number
+  /** Share of pages drawn as partial. */
+  partial?: number
+  /** Seconds the flood takes. */
+  duration?: number
+  wallOpacity?: number
+  class?: string
+  /** Accessible name. Omit for a decorative maze. */
+  label?: string
+}
+
+const {
+  seed,
+  rings = 7,
+  partial = 0.2,
+  duration = 2.4,
+  wallOpacity = 0.2,
+  class: className,
+  label,
+} = Astro.props
+
+const maze = generateMaze({ seed, rings, cross: false })
+const { cellDistance, maxDistance } = crawl(maze)
+const walls = mazeWallsPath(maze)
+const r = maze.outerRadius
+const rng = mulberry32(seed)
+
+// One path per crawl step and fill, so each step floods in at once.
+const steps = new Map<string, { step: number; partial: boolean; d: string }>()
+for (const cell of maze.cells) {
+  const step = cellDistance[cell.id]
+  if (step < 0) continue
+  const isPartial = rng() < partial
+  const key = `${step}-${isPartial}`
+  const entry = steps.get(key) ?? { step, partial: isPartial, d: '' }
+  entry.d += cellFloorPath(maze, cell)
+  steps.set(key, entry)
+}
+const stepDelay = duration / Math.max(1, maxDistance)
+const id = `crawl-maze-${seed}-${Math.random().toString(36).slice(2, 8)}`
+---
+
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox={`${-r} ${-r} ${r * 2} ${r * 2}`}
+  class={className}
+  role={label ? 'img' : undefined}
+  aria-label={label}
+  aria-hidden={label ? undefined : 'true'}
+>
+  <defs>
+    <pattern
+      id={`${id}-hatch`}
+      width="0.22"
+      height="0.22"
+      patternUnits="userSpaceOnUse"
+      patternTransform="rotate(45)"
+    >
+      <line
+        x1="0"
+        y1="0"
+        x2="0"
+        y2="0.22"
+        stroke="currentColor"
+        stroke-width="0.07"></line>
+    </pattern>
+  </defs>
+  <g fill="currentColor" style={`--step-delay: ${stepDelay}s`}>
+    {
+      [...steps.values()].map(({ step, partial, d }) => (
+        <path
+          d={d}
+          class="crawl-step"
+          fill={partial ? `url(#${id}-hatch)` : undefined}
+          stroke={partial ? undefined : 'currentColor'}
+          stroke-width="0.03"
+          style={`--step: ${step}`}
+        />
+      ))
+    }
+  </g>
+  <!-- Faint walls, laid on the page colour so they stay solid over the
+       filled pages. -->
+  <path d={walls} class="fill-surface"></path>
+  <path d={walls} fill="currentColor" fill-opacity={wallOpacity}></path>
+</svg>
+
+<style>
+  .crawl-step {
+    animation: crawl-fill 0.25s ease-out both;
+    animation-delay: calc(0.3s + var(--step) * var(--step-delay));
+  }
+  @keyframes crawl-fill {
+    from {
+      opacity: 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .crawl-step {
+      animation: none;
+    }
+  }
+</style>

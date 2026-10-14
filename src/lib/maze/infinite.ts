@@ -47,6 +47,10 @@ export interface RingCell {
   a1: number
   /** Crawl steps from the entrance. */
   distance: number
+  /** A passage clockwise into the next cell of this ring. */
+  open: boolean
+  /** A passage inward into the same cell of the next ring. */
+  down: boolean
 }
 
 export interface InfiniteRing {
@@ -204,6 +208,8 @@ export class InfiniteMaze {
         a0: i * step,
         a1: (i + 1) * step,
         distance: Number.isFinite(distance[i]) ? distance[i] : -1,
+        open: openAfter[i] === 1,
+        down: down[i] === 1,
       })),
     }
   }

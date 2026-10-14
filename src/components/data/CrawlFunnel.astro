@@ -1,7 +1,7 @@
 ---
 /**
  * Where pages drop out of a crawl, as a Sankey: the main stream runs from
- * discovered to readable along the top, and each stage's losses peel off
+ * first stage to the last along the top, and each stage's losses peel off
  * downward in hatch, ending at a labelled node.
  *
  * The box keeps a fixed aspect ratio, so labels positioned in percentages
@@ -49,8 +49,10 @@ const bandText = layout.bands.map((band) => {
 
 <Figure title="Where pages drop out" caption={caption} class={className}>
   <p slot="aside" class="text-xs text-ink-muted">
-    <span class="font-medium text-ink">{share(stages.at(-1)!.value)}</span> of discovered
-    pages end up readable
+    <span class="font-medium text-ink">{share(stages.at(-1)!.value)}</span> of
+    {stages[0].label.toLowerCase()} pages end up {
+      stages.at(-1)!.label.toLowerCase()
+    }
   </p>
 
   <div
@@ -63,7 +65,7 @@ const bandText = layout.bands.map((band) => {
         viewBox={`0 0 ${W} ${H}`}
         class="funnel absolute inset-0 h-full w-full"
         role="img"
-        aria-label={`Of ${formatNumber(total)} pages discovered, ${formatNumber(stages.at(-1)!.value)} are readable. Losses: ${losses.map((l) => `${l.label} ${formatNumber(l.value)}`).join(', ')}.`}
+        aria-label={`Of ${formatNumber(total)} pages ${stages[0].label.toLowerCase()}, ${formatNumber(stages.at(-1)!.value)} are ${stages.at(-1)!.label.toLowerCase()}. Losses: ${losses.map((l) => `${l.label} ${formatNumber(l.value)}`).join(', ')}.`}
       >
         <defs>
           <pattern

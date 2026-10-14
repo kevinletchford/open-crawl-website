@@ -1,0 +1,307 @@
+---
+/**
+ * The rail, stepper and maze treatments in one: each step is a column with
+ * its own maze on top. Each step plays in turn: the bar along its column
+ * fills while the route draws through its maze, then the step stays filled
+ * and the next one starts. Once the third is done every route stays drawn.
+ * Click a step to jump to it; the ones before it fill at once.
+ *
+ * The mazes' doors sit on the same row, so on wide screens one maze's exit
+ * lines up with the next one's entrance and the three routes read as one.
+ *
+ * Every step is drawn finished in the markup, so it reads complete without
+ * script or with reduced motion; the script empties them before playing.
+ * Each maze is perfect, so its route is the only one, worked out at build
+ * time.
+ */
+import Snippet from './Snippet.astro'
+import { STEPS } from '@/data/steps'
+import { generateGridMaze, gridFlood, gridWallsPath } from '@/lib/maze/grid'
+import { mulberry32 } from '@/lib/maze/rng'
+
+interface Props {
+  seed?: number
+  class?: string
+}
+const { seed = 11, class: className } = Astro.props
+
+const cols = 16
+const rows = 8
+const size = 10
+const W = cols * size
+const H = rows * size
+const mid = Math.floor(rows / 2)
+// The checkpoint sits just outside the exit door; the route stops at its
+// edge and then wraps around it, both ways at once, meeting on the far side.
+const r = 6.5
+const cx = W + 2 + r
+
+const centre = (id: number) =>
+  [((id % cols) + 0.5) * size, (Math.floor(id / cols) + 0.5) * size] as const
+
+// One maze per step, in through the left wall and out through the right.
+const mazes = STEPS.map((_, i) => {
+  const maze = generateGridMaze(cols, rows, mulberry32(seed + i * 7))
+  // Walk back from the exit to the entrance along the flood's parents.
+  const start = mid * cols
+  const end = (mid + 1) * cols - 1
+  const { parent } = gridFlood(maze, [start])
+  const cells = [end]
+  while (cells[cells.length - 1] !== start)
+    cells.push(parent[cells[cells.length - 1]])
+  cells.reverse()
+  const y = centre(start)[1]
+  const route =
+    `M-8 ${y}` +
+    cells.map((c) => `L${centre(c).join(' ')}`).join('') +
+    `L${cx - r} ${y}`
+  const arc = (sweep: number) =>
+    `M${cx - r} ${y}A${r} ${r} 0 0 ${sweep} ${cx + r} ${y}`
+  return {
+    walls: gridWallsPath(maze, size),
+    route,
+    ring: [arc(1), arc(0)],
+    y,
+  }
+})
+---
+
+<div class:list={[className]} data-journey data-reveal>
+  <ol class="grid gap-12 md:grid-cols-3 md:gap-6">
+    {
+      STEPS.map((step, i) => (
+        <li class="step flex flex-col" data-state="done" data-step={i}>
+          <svg
+            viewBox={`-8 -8 ${W + 18 + 2 * r} ${H + 16}`}
+            class="mb-8 w-full overflow-visible text-ink"
+            aria-hidden="true"
+          >
+            <path
+              d={mazes[i].walls}
+              fill="none"
+              stroke="currentColor"
+              stroke-opacity="0.25"
+              stroke-width="1.2"
+              stroke-linecap="square"
+            />
+            {
+              // Doors: cut the outer wall at the entrance and exit.
+              [0, W].map((x) => (
+                <rect
+                  x={x - 2}
+                  y={mid * size + 1}
+                  width="4"
+                  height={size - 2}
+                  class="fill-surface"
+                />
+              ))
+            }
+            <path
+              d={mazes[i].route}
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              pathLength="1"
+              class="leg"
+            />
+            <g class="mark">
+              <circle
+                cx={cx}
+                cy={mazes[i].y}
+                r={r}
+                fill="none"
+                stroke="currentColor"
+                stroke-opacity="0.25"
+                stroke-width="1.2"
+              />
+              {mazes[i].ring.map((d) => (
+                <path
+                  d={d}
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.2"
+                  stroke-linecap="round"
+                  pathLength="1"
+                  class="ring"
+                />
+              ))}
+              <text
+                x={cx}
+                y={mazes[i].y}
+                text-anchor="middle"
+                dominant-baseline="central"
+                font-size="7"
+                class="font-mono"
+              >
+                {i + 1}
+              </text>
+            </g>
+          </svg>
+          <span class="relative block h-px overflow-hidden bg-line">
+            <span class="bar absolute inset-0 origin-left bg-ink" />
+          </span>
+          <button
+            type="button"
+            class="mt-6 flex items-center gap-4 text-left"
+            data-jump={i}
+          >
+            <span class="node relative grid size-10 shrink-0 place-items-center font-mono text-sm transition-colors duration-500">
+              <svg
+                viewBox="0 0 40 40"
+                class="absolute inset-0 size-full overflow-visible"
+                aria-hidden="true"
+              >
+                <circle
+                  cx="20"
+                  cy="20"
+                  r="19.5"
+                  fill="none"
+                  stroke="var(--color-line)"
+                />
+                {[1, 0].map((sweep) => (
+                  <path
+                    d={`M0.5 20A19.5 19.5 0 0 ${sweep} 39.5 20`}
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    pathLength="1"
+                    class="loop"
+                  />
+                ))}
+              </svg>
+              {i + 1}
+            </span>
+            <h3 class="text-xl font-semibold">{step.title}</h3>
+          </button>
+          <p class="mt-4 mb-5 text-ink-muted">{step.body}</p>
+          <Snippet lines={step.snippet} class="snippet mt-auto" />
+        </li>
+      ))
+    }
+  </ol>
+</div>
+
+<style>
+  /* Pending: empty and dimmed. Active: filling over --hold. Done: full,
+     with no transition, so a jump fills earlier steps at once. */
+  .bar {
+    transform: scaleX(0);
+  }
+  [data-state='active'] .bar {
+    transform: none;
+    transition: transform var(--hold) linear;
+  }
+  [data-state='done'] .bar {
+    transform: none;
+  }
+
+  /* The route takes most of the hold; the ring closes in the rest. Both
+     stay drawn at half strength, so the line reads as a trace, not a stroke. */
+  .leg,
+  .ring {
+    stroke-dasharray: 1 2;
+    stroke-dashoffset: 1.02;
+    stroke-opacity: 0.55;
+  }
+  [data-state='active'] .leg {
+    stroke-dashoffset: 0;
+    transition: stroke-dashoffset calc(var(--hold) * 0.85) linear;
+  }
+  [data-state='active'] .ring {
+    stroke-dashoffset: 0;
+    transition: stroke-dashoffset calc(var(--hold) * 0.15) ease-out
+      calc(var(--hold) * 0.85);
+  }
+  [data-state='done'] .leg,
+  [data-state='done'] .ring {
+    stroke-dashoffset: 0;
+  }
+
+  .mark text {
+    fill: var(--color-ink-muted);
+    transition: fill 0.4s;
+  }
+  [data-state='done'] .mark text {
+    fill: var(--color-ink);
+  }
+
+  /* Empty throughout. While the step plays, its outline draws round the
+     number from the left, both ways at once, closing as the bar fills. */
+  .node {
+    color: var(--color-ink-muted);
+  }
+  [data-state='active'] .node,
+  [data-state='done'] .node {
+    color: var(--color-ink);
+  }
+  .loop {
+    stroke-dasharray: 1 2;
+    stroke-dashoffset: 1.02;
+  }
+  [data-state='active'] .loop {
+    stroke-dashoffset: 0;
+    transition: stroke-dashoffset var(--hold) linear;
+  }
+  [data-state='done'] .loop {
+    stroke-dashoffset: 0;
+  }
+
+  .step :global(.snippet),
+  .step p,
+  .step h3 {
+    transition: opacity 0.5s;
+  }
+  .step[data-state='pending'] :global(.snippet),
+  .step[data-state='pending'] p,
+  .step[data-state='pending'] h3 {
+    opacity: 0.4;
+  }
+</style>
+
+<script>
+  import { fresh } from '@/scripts/data/fresh'
+  import { onReveal, scan, still } from '@/scripts/data/reveal'
+
+  // Not in a Figure, so watch for the reveal here.
+  queueMicrotask(scan)
+
+  const HOLD = 3200
+
+  for (const root of fresh('[data-journey]')) {
+    if (still) continue
+    root.style.setProperty('--hold', `${HOLD}ms`)
+    const parts = [...root.querySelectorAll<Element>('[data-state]')]
+    const count = root.querySelectorAll('[data-jump]').length
+    let timer: number | undefined
+
+    const set = (state: (step: number) => string) =>
+      parts.forEach((el) =>
+        el.setAttribute(
+          'data-state',
+          state(Number((el as HTMLElement).dataset.step)),
+        ),
+      )
+
+    // Steps before `i` done, `i` playing, the rest waiting. Past the last
+    // step, everything stays done.
+    const play = (i: number) => {
+      window.clearTimeout(timer)
+      set((s) => (s < i ? 'done' : 'pending'))
+      if (i >= count) return
+      // Let the pending state land, so the fill starts from empty.
+      void root.offsetWidth
+      set((s) => (s < i ? 'done' : s === i ? 'active' : 'pending'))
+      timer = window.setTimeout(() => play(i + 1), HOLD)
+    }
+
+    set(() => 'pending')
+    root
+      .querySelectorAll<HTMLElement>('[data-jump]')
+      .forEach((el) =>
+        el.addEventListener('click', () => play(Number(el.dataset.jump))),
+      )
+    onReveal(root, () => play(0))
+  }
+</script>

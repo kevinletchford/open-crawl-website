@@ -1,0 +1,365 @@
+---
+/**
+ * The same crawl as raw HTML and as JS rendering in headless Chrome, in the
+ * style of CrawlProgressChart: the number first, the chart as evidence, and
+ * a crosshair that reads both series at once. The headline follows the
+ * crosshair, then returns to how many times faster HTML is.
+ *
+ * Both axes run by order of magnitude, so a crawl that takes a quarter of a
+ * second and one that takes a minute share a chart. Log axes have no zero:
+ * each line starts at its first page, and the HTML line stops at its last,
+ * then idles as a dotted rule to the edge.
+ *
+ * The SVG stretches to the box (`preserveAspectRatio="none"` with
+ * non-scaling strokes); dots and the tooltip are HTML on top so they stay
+ * round and crisp at any width.
+ */
+import Figure from './Figure.astro'
+import {
+  areaPath,
+  formatMs,
+  formatNumber,
+  linePath,
+  logScale,
+} from '@/lib/chart'
+import type { CrawlMode, ModeSample } from '@/data/benchmarks'
+
+interface Props {
+  html: CrawlMode
+  rendered: CrawlMode
+  samples: ModeSample[]
+  caption?: string
+  class?: string
+}
+
+const { html, rendered, samples, caption, class: className } = Astro.props
+
+const W = 640
+const H = 240
+const tMin = samples[0].t
+const tMax = samples[samples.length - 1].t
+const yMax = 10 ** Math.ceil(Math.log10(Math.max(html.pages, rendered.pages)))
+const x = logScale([tMin, tMax], [0, W])
+const y = logScale([1, yMax], [H, 0])
+
+const rate = (mode: CrawlMode) => mode.pages / (mode.ms / 1000)
+const times = `${formatNumber(rate(html) / rate(rendered))}×`
+const rates = `${formatNumber(rate(html))} vs ${Number(rate(rendered).toFixed(1))} pages a second`
+
+const line = (mode: CrawlMode, key: 'html' | 'rendered') => [
+  [x(mode.first), y(1)] as [number, number],
+  ...samples
+    .filter((s) => s.t > mode.first && s.t < mode.ms)
+    .map((s) => [x(s.t), y(s[key])] as [number, number]),
+  [x(mode.ms), y(mode.pages)] as [number, number],
+]
+const htmlPoints = line(html, 'html')
+const renderedPoints = line(rendered, 'rendered')
+const gradientId = `modes-fill-${Math.random().toString(36).slice(2, 8)}`
+
+const pct = (value: number, of: number) => (value / of) * 100
+const data = samples.map((s) => ({ ...s, x: pct(x(s.t), W) }))
+const yTicks = Array.from({ length: Math.log10(yMax) + 1 }, (_, i) => 10 ** i)
+const xTicks = [1, 10, 100, 1000, 10_000, tMax]
+---
+
+<Figure
+  title="HTML crawl vs JS rendering"
+  caption={caption}
+  class={className}
+  bodyClass="p-6 sm:p-8"
+>
+  <ul
+    slot="aside"
+    class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted"
+  >
+    <li class="flex items-center gap-2">
+      <span class="h-px w-4 bg-ink"></span>{html.label}
+    </li>
+    <li class="flex items-center gap-2">
+      <span class="h-px w-4 bg-ink/60"></span>{rendered.label}
+    </li>
+  </ul>
+
+  <div data-modes>
+    <p class="text-4xl font-semibold tracking-tight tabular-nums">
+      <span data-modes-value>{times}</span>
+    </p>
+    <p class="mt-1 text-sm text-ink-muted" data-modes-when>
+      faster as raw HTML <span aria-hidden="true">·</span>{' '}
+      <span class="text-ink">{rates}</span>
+    </p>
+
+    <div class="mt-8 flex gap-3">
+      <div
+        class="relative h-60 flex-1 cursor-crosshair touch-pan-y outline-none focus-visible:ring-2 focus-visible:ring-ink/40"
+        tabindex="0"
+        role="slider"
+        aria-label={`Pages finished over time. The HTML crawl finished ${formatNumber(html.pages)} pages in ${formatMs(html.ms)}; the first rendered page arrived at ${formatMs(rendered.first)}, and ${formatNumber(rendered.pages)} were rendered in ${formatMs(rendered.ms)}. Use the arrow keys to read the chart.`}
+        aria-valuemin={tMin}
+        aria-valuemax={tMax}
+        aria-valuenow={tMax}
+        aria-valuetext={`${times} faster as raw HTML`}
+        data-modes-plot
+      >
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          preserveAspectRatio="none"
+          class="absolute inset-0 h-full w-full overflow-visible"
+          aria-hidden="true"
+        >
+          <defs>
+            <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0" stop-color="var(--color-ink)" stop-opacity="0.1"
+              ></stop>
+              <stop offset="1" stop-color="var(--color-ink)" stop-opacity="0"
+              ></stop>
+            </linearGradient>
+          </defs>
+          {
+            yTicks.map((tick) => (
+              <line
+                x1="0"
+                x2={W}
+                y1={y(tick)}
+                y2={y(tick)}
+                class={tick === 1 ? 'stroke-ink/25' : 'stroke-line'}
+                vector-effect="non-scaling-stroke"
+              />
+            ))
+          }
+          <path
+            d={areaPath([...htmlPoints, [W, y(html.pages)]], H)}
+            fill={`url(#${gradientId})`}
+            class="fade"
+            style="--delay: 900ms"></path>
+          <line
+            x1={x(html.ms)}
+            x2={W}
+            y1={y(html.pages)}
+            y2={y(html.pages)}
+            class="stroke-ink/40"
+            stroke-width="1.5"
+            stroke-dasharray="1 4"
+            stroke-linecap="round"
+            vector-effect="non-scaling-stroke"></line>
+          <path
+            d={linePath(renderedPoints)}
+            fill="none"
+            class="wipe stroke-ink/60"
+            stroke-width="1.5"
+            stroke-linejoin="round"
+            vector-effect="non-scaling-stroke"
+            style="--delay: 150ms"></path>
+          <path
+            d={linePath(htmlPoints)}
+            fill="none"
+            class="wipe stroke-ink"
+            stroke-width="1.5"
+            stroke-linejoin="round"
+            vector-effect="non-scaling-stroke"></path>
+        </svg>
+
+        <div
+          class="pointer-events-none absolute inset-y-0 w-px bg-ink/35"
+          data-modes-cross
+          hidden
+        >
+          <span
+            class="absolute left-0 size-2 -translate-1/2 rounded-full bg-ink/60 ring-2 ring-surface"
+            data-dot="rendered"></span>
+          <span
+            class="absolute left-0 size-2 -translate-1/2 rounded-full bg-ink ring-2 ring-surface"
+            data-dot="html"></span>
+        </div>
+
+        <div
+          class="pointer-events-none absolute top-2 z-10 w-44 rounded-lg border border-line bg-surface-alt p-3 text-xs shadow-lg shadow-black/40"
+          data-modes-tip
+          hidden
+        >
+          <p class="font-mono text-ink-muted" data-tip="t"></p>
+          <dl class="mt-2 space-y-1">
+            <div class="flex justify-between gap-3">
+              <dt>{html.label}</dt>
+              <dd class="tabular-nums" data-tip="html"></dd>
+            </div>
+            <div class="flex justify-between gap-3">
+              <dt class="text-ink-muted">{rendered.label}</dt>
+              <dd class="tabular-nums" data-tip="rendered"></dd>
+            </div>
+          </dl>
+        </div>
+      </div>
+
+      <div
+        class="relative w-10 shrink-0 text-right text-xs text-ink-muted tabular-nums"
+        aria-hidden="true"
+      >
+        {
+          yTicks.map((tick) => (
+            <span
+              class="absolute right-0 -translate-y-1/2"
+              style={`top: ${pct(y(tick), H)}%`}
+            >
+              {tick >= 1000 ? `${tick / 1000}k` : tick}
+            </span>
+          ))
+        }
+      </div>
+    </div>
+
+    <div
+      class="relative mt-2 mr-13 h-4 font-mono text-xs text-ink-muted"
+      aria-hidden="true"
+    >
+      {
+        xTicks.map((t, i) => (
+          <span
+            class:list={[
+              'absolute',
+              i === 0
+                ? ''
+                : i === xTicks.length - 1
+                  ? '-translate-x-full'
+                  : '-translate-x-1/2',
+            ]}
+            style={`left: ${pct(x(t), W)}%`}
+          >
+            {formatMs(t)}
+          </span>
+        ))
+      }
+    </div>
+
+    <script
+      is:inline
+      type="application/json"
+      data-modes-data
+      set:html={JSON.stringify({
+        samples: data,
+        yMax,
+        htmlDone: html.ms,
+        times,
+        rates,
+      })}
+    />
+
+    <table class="sr-only">
+      <caption>Pages finished over time, HTML crawl and JS rendering</caption>
+      <thead>
+        <tr><th>Time</th><th>{html.label}</th><th>{rendered.label}</th></tr>
+      </thead>
+      <tbody>
+        {
+          data
+            .filter((_, i) => i % 6 === 0 || i === data.length - 1)
+            .map((s) => (
+              <tr>
+                <td>{formatMs(s.t)}</td>
+                <td>{s.html}</td>
+                <td>{s.rendered}</td>
+              </tr>
+            ))
+        }
+      </tbody>
+    </table>
+  </div>
+</Figure>
+
+<script>
+  import { fresh } from '@/scripts/data/fresh'
+  import { formatMs, formatNumber } from '@/lib/chart'
+
+  interface Sample {
+    t: number
+    x: number
+    html: number
+    rendered: number
+  }
+
+  for (const root of fresh('[data-modes]')) {
+    const { samples, yMax, htmlDone, times, rates } = JSON.parse(
+      root.querySelector('[data-modes-data]')!.textContent!,
+    ) as {
+      samples: Sample[]
+      yMax: number
+      htmlDone: number
+      times: string
+      rates: string
+    }
+    const plot = root.querySelector<HTMLElement>('[data-modes-plot]')!
+    const cross = root.querySelector<HTMLElement>('[data-modes-cross]')!
+    const tip = root.querySelector<HTMLElement>('[data-modes-tip]')!
+    const value = root.querySelector<HTMLElement>('[data-modes-value]')!
+    const when = root.querySelector<HTMLElement>('[data-modes-when]')!
+    const resting = when.innerHTML
+    const dot = (key: string) =>
+      cross.querySelector<HTMLElement>(`[data-dot="${key}"]`)!
+    const field = (key: string) =>
+      tip.querySelector<HTMLElement>(`[data-tip="${key}"]`)!
+    let index = -1
+
+    // A series with no pages yet has no place on a log axis, so no dot.
+    const place = (key: string, v: number) => {
+      dot(key).hidden = v === 0
+      if (v > 0)
+        dot(key).style.top = `${(1 - Math.log10(v) / Math.log10(yMax)) * 100}%`
+    }
+
+    const show = (i: number) => {
+      index = Math.max(0, Math.min(samples.length - 1, i))
+      const s = samples[index]
+      const t = formatMs(s.t)
+      cross.hidden = false
+      tip.hidden = false
+      cross.style.left = `${s.x}%`
+      place('html', s.html)
+      place('rendered', s.rendered)
+      // Keep the tooltip inside the plot: right of the line, or left of it
+      // past the middle.
+      const flip = s.x > 55
+      tip.style.left = flip ? '' : `calc(${s.x}% + 12px)`
+      tip.style.right = flip ? `calc(${100 - s.x}% + 12px)` : ''
+      field('t').textContent = `${t} into the crawl`
+      field('html').textContent =
+        s.t >= htmlDone ? `${formatNumber(s.html)}, done` : formatNumber(s.html)
+      field('rendered').textContent = formatNumber(s.rendered)
+      value.textContent = formatNumber(s.html)
+      when.textContent = `pages as HTML at ${t} · ${formatNumber(s.rendered)} rendered`
+      plot.setAttribute('aria-valuenow', String(s.t))
+      plot.setAttribute(
+        'aria-valuetext',
+        `${t}: ${formatNumber(s.html)} pages as HTML, ${formatNumber(s.rendered)} rendered`,
+      )
+    }
+
+    const hide = () => {
+      index = -1
+      cross.hidden = true
+      tip.hidden = true
+      value.textContent = times
+      when.innerHTML = resting
+      plot.setAttribute(
+        'aria-valuetext',
+        `${times} faster as raw HTML, ${rates}`,
+      )
+    }
+
+    plot.addEventListener('pointermove', (event) => {
+      const box = plot.getBoundingClientRect()
+      const t = (event.clientX - box.left) / box.width
+      show(Math.round(t * (samples.length - 1)))
+    })
+    plot.addEventListener('pointerleave', hide)
+    plot.addEventListener('blur', hide)
+    plot.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowRight') show(index + 1)
+      else if (event.key === 'ArrowLeft')
+        show(index < 0 ? samples.length - 1 : index - 1)
+      else if (event.key === 'Escape') hide()
+      else return
+      event.preventDefault()
+    })
+  }
+</script>

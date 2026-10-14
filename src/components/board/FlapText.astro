@@ -1,0 +1,167 @@
+---
+/**
+ * One column's worth of split-flap tiles for a row: `width` character
+ * tiles, or with `word` a single tile that wide. Plain text until
+ * `src/scripts/data/flap.ts` turns it.
+ */
+import { fit } from './board'
+
+interface Props {
+  col: string
+  text: string
+  width: number
+  /** Tiles shown on small screens; the rest are hidden there. */
+  mobile?: number
+  r?: number
+  align?: 'left' | 'right'
+  word?: boolean
+  muted?: boolean
+  class?: string
+}
+
+const {
+  col,
+  text,
+  width,
+  mobile,
+  r,
+  align = 'left',
+  word = false,
+  muted = false,
+  class: className,
+} = Astro.props
+const tiles = word ? [text] : [...fit(text, width, align)]
+---
+
+<span
+  class:list={['flap-group', muted && 'flap-muted', className]}
+  data-col={col}
+  data-r={r}
+  data-align={align}
+  data-word={word ? '' : undefined}
+>
+  {
+    tiles.map((value, i) => (
+      <span
+        class:list={[
+          'flap',
+          word && 'flap-word',
+          mobile !== undefined && i >= mobile && 'flap-sm',
+        ]}
+        style={word ? `--len: ${width}` : undefined}
+        data-flap={value}
+      >
+        {value.replace(/ /g, ' ')}
+      </span>
+    ))
+  }
+</span>
+
+<style is:global>
+  /*
+   * The tiles, turned by src/scripts/data/flap.ts. Greys only: the top
+   * leaf is a shade lighter than the bottom, with a dark hinge between.
+   *
+   * Sizes are in ems so `fitStyle` in board.ts can work out how big the type
+   * can be for a row to fill its board.
+   */
+
+  .flap-board {
+    container-type: inline-size;
+  }
+  .flap-fit {
+    font-size: min(var(--max), 100cqi / var(--n));
+  }
+  @media (min-width: 40rem) {
+    .flap-fit {
+      font-size: min(var(--max), 100cqi / var(--n-sm));
+    }
+  }
+
+  .flap-group {
+    display: flex;
+    gap: 0.12em;
+  }
+
+  .flap {
+    --flap-h: 1.7em;
+    --flap-top: oklch(0.2 0 0);
+    --flap-bottom: oklch(0.17 0 0);
+    position: relative;
+    display: block;
+    flex: none;
+    width: 1.05em;
+    height: var(--flap-h);
+    line-height: var(--flap-h);
+    text-align: center;
+    white-space: pre;
+    border-radius: 0.16em;
+    background: linear-gradient(var(--flap-top) 50%, var(--flap-bottom) 50%);
+    perspective: 6em;
+  }
+  /* The hinge. */
+  .flap::after {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    top: calc(50% - 0.5px);
+    height: 1px;
+    background: oklch(0 0 0 / 0.9);
+    z-index: 3;
+  }
+
+  .flap-word {
+    width: calc(var(--len) * 0.6em + 0.9em);
+    padding-inline: 0.45em;
+    text-align: left;
+    perspective: 14em;
+  }
+
+  .flap-half {
+    position: absolute;
+    inset-inline: 0;
+    height: 50%;
+    overflow: hidden;
+  }
+  .flap-half > span {
+    display: block;
+    height: var(--flap-h);
+    line-height: var(--flap-h);
+  }
+  .flap-word .flap-half > span {
+    padding-inline: 0.45em;
+  }
+  .flap-top {
+    top: 0;
+    border-radius: 0.16em 0.16em 0 0;
+    background: var(--flap-top);
+    transform-origin: 50% 100%;
+  }
+  .flap-bottom {
+    bottom: 0;
+    border-radius: 0 0 0.16em 0.16em;
+    background: var(--flap-bottom);
+    transform-origin: 50% 0;
+  }
+  .flap-bottom > span {
+    margin-top: calc(var(--flap-h) / -2);
+  }
+  .flap-leaf {
+    z-index: 2;
+    backface-visibility: hidden;
+    will-change: transform;
+  }
+
+  /* Quieter tiles for the supporting columns. */
+  .flap-muted .flap {
+    color: var(--color-ink-muted);
+  }
+
+  /* Tiles past a column's mobile width, and lines past a board's. */
+  @media (max-width: 39.99rem) {
+    .flap.flap-sm,
+    .flap-group.flap-sm {
+      display: none;
+    }
+  }
+</style>

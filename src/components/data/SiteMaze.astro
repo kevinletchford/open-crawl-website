@@ -8,7 +8,7 @@
  * blocked section.
  *
  * Fills follow the rest of the system: readable solid, partial hatch,
- * blocked outline. Hovering a page names it and lights its route back to
+ * blocked outline, all bright against faint walls. Hovering a page names it and lights its route back to
  * the entrance.
  */
 import Figure from './Figure.astro'
@@ -199,7 +199,11 @@ const cells = maze.cells.map((cell) => ({
             ))
           }
         </g>
-        <path d={walls} class="pointer-events-none fill-ink"></path>
+        <!-- Faint walls, laid on the page colour so they stay solid over
+             filled pages. -->
+        <path d={walls} class="pointer-events-none fill-surface"></path>
+        <path d={walls} class="pointer-events-none fill-ink" fill-opacity="0.2"
+        ></path>
       </svg>
       <div
         class="pointer-events-none absolute z-10 w-56 rounded-lg border border-line bg-surface-alt p-3 text-xs shadow-lg shadow-black/40"
@@ -215,7 +219,7 @@ const cells = maze.cells.map((cell) => ({
       <dl class="grid grid-cols-2 gap-x-6 gap-y-5 lg:grid-cols-1">
         {
           [
-            { key: 'readable', label: 'Readable', swatch: 'bg-ink/60' },
+            { key: 'readable', label: 'Readable', swatch: 'bg-ink' },
             { key: 'partial', label: 'Partial', swatch: 'hatch opacity-80' },
             {
               key: 'blocked',
@@ -276,7 +280,7 @@ const cells = maze.cells.map((cell) => ({
       stroke-opacity 0.25s;
   }
   .maze-floors path.is-readable {
-    fill-opacity: 0.55;
+    fill-opacity: 1;
   }
   .maze-floors path.is-partial {
     fill: var(--hatch);

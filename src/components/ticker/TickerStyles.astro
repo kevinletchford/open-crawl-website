@@ -1,0 +1,104 @@
+---
+/**
+ * Styles for the request log variations and `src/scripts/data/ticker.ts`.
+ * Global and unlayered, like the flap tiles, because the script builds
+ * elements Astro never sees.
+ */
+---
+
+<style is:global>
+  /*
+   * Lines added at the top of a log mustn't scroll the page: without this
+   * the browser's scroll anchoring moves the page to keep the line it's
+   * anchored to in place, so the page creeps with every request.
+   */
+  [data-ticker] [data-list] {
+    overflow-anchor: none;
+  }
+
+  /* A character on the move: one mono cell, clipped to its line. */
+  .tk-c {
+    position: relative;
+    display: inline-block;
+    width: 1ch;
+    height: 1lh;
+    overflow: clip;
+    vertical-align: top;
+  }
+  .tk-g {
+    position: absolute;
+    inset: 0;
+    text-align: center;
+  }
+
+  /* An odometer wheel: 0–9 stacked, turned by translateY. */
+  .tk-strip {
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    white-space: normal;
+    word-break: break-all;
+    text-align: center;
+    transition-property: transform;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* Status by fill, not colour: 2xx solid, 3xx outline, 4xx/5xx faint and struck. */
+  .tk-pill {
+    display: inline-block;
+    min-width: 3.25em;
+    padding: 0.125rem 0.375rem;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    transition:
+      background-color 0.6s ease,
+      color 0.6s ease,
+      border-color 0.6s ease;
+  }
+  .tk-pill[data-kind='ok'] {
+    background-color: var(--color-ink);
+    color: var(--color-surface);
+  }
+  .tk-pill[data-kind='redirect'] {
+    border-color: color-mix(in oklab, var(--color-ink) 50%, transparent);
+  }
+  .tk-pill[data-kind='error'] {
+    border-color: var(--color-line);
+    color: var(--color-ink-muted);
+    text-decoration: line-through;
+  }
+  .tk-pill[data-kind='pending'] {
+    border-style: dashed;
+    border-color: color-mix(in oklab, var(--color-ink) 35%, transparent);
+    color: var(--color-ink-muted);
+    animation: tk-wait 1.6s ease-in-out infinite;
+  }
+  @keyframes tk-wait {
+    50% {
+      border-color: color-mix(in oklab, var(--color-ink) 12%, transparent);
+    }
+  }
+
+  /* The live marker: a slow breath rather than a blink. */
+  .tk-live {
+    animation: tk-breathe 2.4s ease-in-out infinite;
+  }
+  @keyframes tk-breathe {
+    50% {
+      opacity: 0.25;
+    }
+  }
+
+  .tk-dim {
+    transition: color 0.8s ease;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tk-pill[data-kind='pending'],
+    .tk-live {
+      animation: none;
+    }
+  }
+</style>

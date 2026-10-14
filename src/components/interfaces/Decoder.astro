@@ -1,0 +1,134 @@
+---
+/**
+ * The line itself does the work: "Drive it from MCP. Send results to
+ * SQLite." with each slot scrambling through characters into the next
+ * interface, out of step with the other. Below, the full list, with the
+ * two in the sentence filled in.
+ *
+ * Each slot eases to the width of its next word, so the line closes up
+ * around it rather than leaving a gap for the longest.
+ * Without script or with reduced motion it reads as the plain list.
+ */
+import { INPUTS, OUTPUTS } from '@/data/interfaces'
+
+interface Props {
+  class?: string
+}
+const { class: className } = Astro.props
+---
+
+<div class:list={['text-center', className]} data-decoder>
+  <p class="sr-only">Drive it from anything. Send results anywhere.</p>
+  <p
+    class="text-3xl leading-tight font-medium tracking-tight text-balance sm:text-5xl"
+    aria-hidden="true"
+  >
+    Drive it from <span
+      class="slot inline-block text-left font-mono"
+      style={`width: ${INPUTS[0].name.length}ch`}
+      data-slot="in">{INPUTS[0].name}</span
+    >.<br />
+    Send results to <span
+      class="slot inline-block text-left font-mono"
+      style={`width: ${OUTPUTS[0].name.length}ch`}
+      data-slot="out">{OUTPUTS[0].name}</span
+    >.
+  </p>
+
+  <ul
+    class="mt-10 flex flex-wrap justify-center gap-2"
+    aria-label="Interfaces and formats OpenCrawl supports"
+  >
+    {
+      [...INPUTS, ...OUTPUTS].map((item, i) => (
+        <li
+          class:list={[
+            'chip rounded-full border border-line px-3.5 py-1.5 font-mono text-xs text-ink-muted transition-colors duration-300',
+            (i === 0 || i === INPUTS.length) && 'on',
+          ]}
+          data-chip={
+            item.side === 'in' ? `in-${i}` : `out-${i - INPUTS.length}`
+          }
+        >
+          {item.name}
+        </li>
+      ))
+    }
+  </ul>
+</div>
+
+<style>
+  .slot {
+    transition: width 0.5s cubic-bezier(0.2, 0, 0, 1);
+    white-space: nowrap;
+  }
+  .chip.on {
+    border-color: var(--color-ink);
+    background-color: var(--color-ink);
+    color: var(--color-surface);
+  }
+  :global(.decoder-noise) {
+    color: var(--color-ink-muted);
+  }
+</style>
+
+<script>
+  import { fresh } from '@/scripts/data/fresh'
+  import { still } from '@/scripts/data/reveal'
+  import { INPUTS, OUTPUTS } from '@/data/interfaces'
+
+  const glyphs = 'abcdefghijklmnopqrstuvwxyz./_-{}<>'
+  const noise = () => glyphs[Math.floor(Math.random() * glyphs.length)]
+
+  for (const root of fresh('[data-decoder]')) {
+    if (still) continue
+    const chips = [...root.querySelectorAll<HTMLElement>('[data-chip]')]
+
+    // Scrambles `el` into `word`, settling a letter at a time from the left.
+    const decode = (el: HTMLElement, word: string) => {
+      el.style.width = `${word.length}ch`
+      const frames = 18
+      let frame = 0
+      const step = () => {
+        const settled = Math.floor((frame / frames) * word.length)
+        el.textContent = ''
+        el.append(word.slice(0, settled))
+        if (settled < word.length) {
+          const tail = document.createElement('span')
+          tail.className = 'decoder-noise'
+          tail.textContent = Array.from(
+            { length: word.length - settled },
+            noise,
+          ).join('')
+          el.append(tail)
+        }
+        if (frame++ < frames) window.setTimeout(step, 40)
+      }
+      step()
+    }
+
+    const slot = (
+      side: 'in' | 'out',
+      items: { name: string }[],
+      every: number,
+      offset: number,
+    ) => {
+      const el = root.querySelector<HTMLElement>(`[data-slot="${side}"]`)!
+      let n = 0
+      window.setTimeout(() => {
+        window.setInterval(() => {
+          if (document.hidden || root.matches(':hover')) return
+          n = (n + 1) % items.length
+          decode(el, items[n].name)
+          for (const chip of chips) {
+            if (chip.dataset.chip!.startsWith(side))
+              chip.classList.toggle('on', chip.dataset.chip === `${side}-${n}`)
+          }
+        }, every)
+      }, offset)
+    }
+
+    slot('in', INPUTS, 2400, 0)
+    slot('out', OUTPUTS, 2400, 1200)
+  }
+</script>

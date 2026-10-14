@@ -1,0 +1,224 @@
+---
+/**
+ * The testing card's graphic: a pricing page with the fields the crawl
+ * pulls out of it. Each field is picked out in turn, with the selector
+ * that found it, and its record lands in the test run below. The third
+ * plan has no name, so its record fails. Played by
+ * `scripts/feature-steps.ts`.
+ */
+interface Props {
+  class?: string
+}
+const { class: className } = Astro.props
+
+const PLANS = [
+  { name: 'Free', price: '$0' },
+  { name: 'Team', price: '$29' },
+  { name: '', price: '$99' },
+]
+// Each plan's name then price, in page order; its record follows the price.
+const nameAt = (i: number) => i * 2 + 1
+const priceAt = (i: number) => i * 2 + 2
+
+const RECORDS = [
+  { plan: '"Free"', price: '0', pass: true },
+  { plan: '"Team"', price: '29', pass: true },
+  { plan: 'null', price: '99', pass: false },
+]
+const DONE_AT = priceAt(PLANS.length - 1) + 1
+---
+
+<div
+  class:list={['absolute inset-0', className]}
+  aria-hidden="true"
+  data-steps
+  data-interval="600"
+  data-hold="1500"
+>
+  {/* The page */}
+  <div
+    class="absolute top-0 right-6 bottom-28 left-10 overflow-hidden panel-sunk rounded-lg"
+  >
+    <p
+      class="border-b border-line px-3 py-2 font-mono text-[11px] text-ink-muted"
+    >
+      example.com/pricing
+    </p>
+    <div class="grid grid-cols-3 gap-2 p-3">
+      {
+        PLANS.map((plan, i) => (
+          <div class="rounded-md border border-line p-2.5">
+            <div
+              class:list={[
+                'test-field relative mt-3 flex h-5 items-center px-1 text-xs',
+                !plan.name && 'test-field-missing',
+              ]}
+              data-at={nameAt(i)}
+            >
+              <span class="absolute -top-3.5 left-0 flex gap-1 font-mono text-[9px] text-ink-muted">
+                plan
+                {!plan.name && (
+                  <span class="test-cross text-ink" data-at={nameAt(i)}>
+                    ✕
+                  </span>
+                )}
+              </span>
+              {plan.name || (
+                <span class="h-1.5 w-full rounded-full bg-ink/10" />
+              )}
+              <span
+                class="test-focus"
+                data-at={nameAt(i)}
+                data-until={nameAt(i)}
+              >
+                <span class="test-selector">h3.plan</span>
+              </span>
+            </div>
+            <div
+              class="test-field relative mt-5 flex h-7 items-center px-1 text-lg font-medium"
+              data-at={priceAt(i)}
+            >
+              <span class="absolute -top-3.5 left-0 font-mono text-[9px] text-ink-muted">
+                price
+              </span>
+              {plan.price}
+              <span
+                class="test-focus"
+                data-at={priceAt(i)}
+                data-until={priceAt(i)}
+              >
+                <span class="test-selector">.amount</span>
+              </span>
+            </div>
+            <div class="mt-3 space-y-1.5">
+              <span class="block h-1 w-full rounded-full bg-ink/10" />
+              <span class="block h-1 w-4/5 rounded-full bg-ink/10" />
+              <span class="block h-1 w-3/5 rounded-full bg-ink/10" />
+            </div>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+
+  {/* The records it returned, checked */}
+  <div
+    class="absolute right-12 bottom-4 left-4 panel-raised rounded-lg p-4 font-mono text-[11px] transition-transform duration-500 ease-66 group-hover:-translate-y-1"
+  >
+    <p class="text-ink-muted">$ opencrawl test pricing</p>
+    <table class="mt-2.5 w-full">
+      <tbody>
+        {
+          RECORDS.map((record, i) => (
+            <tr
+              class:list={[
+                'test-row',
+                record.pass ? 'text-ink' : 'text-ink-muted',
+              ]}
+              data-at={priceAt(i)}
+            >
+              <td class="w-4 py-0.5">{record.pass ? '✓' : '✕'}</td>
+              <td>plan: {record.plan}</td>
+              <td>price: {record.price}</td>
+              <td class="text-right">USD</td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+    <p class="mt-2.5 border-t border-line pt-2.5 text-ink-muted">
+      <span class="test-running" data-at="0" data-until={DONE_AT - 1}>
+        running<span class="test-caret">_</span>
+      </span>
+      <span class="test-done" data-at={DONE_AT}>2 passed, 1 failed</span>
+    </p>
+  </div>
+</div>
+
+<style>
+  /* Finished, as drawn without script; [data-playing] holds back the rest */
+  .test-field {
+    border: 1px solid color-mix(in oklch, var(--color-ink) 45%, transparent);
+    border-radius: 3px;
+    transition:
+      border-color 0.45s var(--ease-66),
+      color 0.45s var(--ease-66);
+  }
+  .test-field-missing {
+    border-style: dashed;
+    border-color: var(--color-ink);
+  }
+  [data-playing] .test-field:not([data-on]) {
+    border-style: dashed;
+    border-color: color-mix(in oklch, var(--color-ink) 20%, transparent);
+    color: color-mix(in oklch, var(--color-ink) 55%, transparent);
+  }
+
+  /* The field being read: a bright frame and the selector that found it */
+  .test-focus {
+    position: absolute;
+    inset: -4px;
+    border: 1px solid var(--color-ink);
+    border-radius: 5px;
+    box-shadow: 0 0 16px color-mix(in oklch, var(--color-ink) 25%, transparent);
+    opacity: 0;
+    transform: scale(1.06);
+    transition:
+      opacity 0.35s var(--ease-66),
+      transform 0.35s var(--ease-66);
+    pointer-events: none;
+  }
+  .test-focus[data-on] {
+    opacity: 1;
+    transform: none;
+  }
+  .test-selector {
+    position: absolute;
+    right: -1px;
+    bottom: calc(100% + 3px);
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: var(--color-ink);
+    color: var(--color-surface);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 400;
+    line-height: 1.4;
+    white-space: nowrap;
+  }
+
+  .test-cross {
+    transition: opacity 0.35s var(--ease-66);
+  }
+  [data-playing] .test-cross:not([data-on]) {
+    opacity: 0;
+  }
+
+  .test-row {
+    transition:
+      opacity 0.45s var(--ease-66),
+      transform 0.45s var(--ease-66);
+  }
+  [data-playing] .test-row:not([data-on]) {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  .test-running {
+    display: none;
+  }
+  [data-playing] .test-running[data-on] {
+    display: inline;
+  }
+  [data-playing] .test-done:not([data-on]) {
+    display: none;
+  }
+  .test-caret {
+    animation: test-blink 1s steps(1) infinite;
+  }
+  @keyframes test-blink {
+    50% {
+      opacity: 0;
+    }
+  }
+</style>

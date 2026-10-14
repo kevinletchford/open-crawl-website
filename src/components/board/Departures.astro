@@ -1,0 +1,128 @@
+---
+/**
+ * The crawl's requests as a station departures board. Each new request
+ * takes the top line and the rest move down one, the change rolling down
+ * the board line by line as the tiles turn over.
+ *
+ * With `words`, each column is one wide tile printed with the whole value,
+ * like the newer boards that flip a word at a time: fewer, larger flaps.
+ */
+import Figure from '@/components/data/Figure.astro'
+import type { LogEntry } from '@/data/demo'
+import FlapText from './FlapText.astro'
+import { type Column, fitStyle, startTime, values } from './board'
+
+interface Props {
+  entries: LogEntry[]
+  /** Lines on the board; small screens show `mobileRows`. */
+  rows?: number
+  mobileRows?: number
+  words?: boolean
+  class?: string
+}
+
+const {
+  entries,
+  rows = 14,
+  mobileRows = 7,
+  words = false,
+  class: className,
+} = Astro.props
+
+const COLUMNS: Column[] = [
+  { key: 'time', head: 'Time', width: 8, mobile: 0, muted: true },
+  { key: 'path', head: 'Path', width: 28, mobile: words ? 28 : 15 },
+  { key: 'status', head: 'Status', width: 3 },
+  { key: 'ms', head: 'Took', width: 5, mobile: 0, align: 'right', muted: true },
+]
+const data = entries.map(values)
+const shown: Record<string, string>[] = data
+  .slice(0, rows)
+  .map((v, i) => ({ ...v, time: startTime(i) }))
+---
+
+<Figure caption="" class={className} bodyClass="px-6 py-6 sm:px-8 sm:py-7">
+  <div
+    class="flap-board"
+    data-board="departures"
+    data-entries={JSON.stringify(data)}
+  >
+    <div
+      class="flap-fit flex justify-between font-mono"
+      style={fitStyle(COLUMNS, 15, words)}
+    >
+      {
+        COLUMNS.map((col) => (
+          <div
+            class:list={[
+              'flex flex-col gap-[0.3em]',
+              col.mobile === 0 && 'max-sm:hidden',
+              col.align === 'right' && 'items-end',
+            ]}
+          >
+            <span class="mb-[0.4em] font-sans text-xs text-ink-muted">
+              {col.head}
+            </span>
+            {shown.map((v, r) => (
+              <FlapText
+                col={col.key}
+                r={r}
+                text={v[col.key]}
+                width={col.width}
+                mobile={col.mobile}
+                align={col.align}
+                muted={col.muted}
+                word={words}
+                class:list={[r >= mobileRows && 'flap-sm']}
+              />
+            ))}
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</Figure>
+
+<script>
+  import { fresh } from '@/scripts/data/fresh'
+  import { clock, every, row, writeRow } from '@/scripts/data/flap'
+  import { onReveal, still } from '@/scripts/data/reveal'
+
+  for (const root of fresh('[data-board="departures"]')) {
+    const data: Record<string, string>[] = JSON.parse(root.dataset.entries!)
+    const lines = [
+      ...new Set(
+        [...root.querySelectorAll<HTMLElement>('[data-r]')].map(
+          (el) => el.dataset.r!,
+        ),
+      ),
+    ].map((r) => row(root, Number(r)))
+    const shown = data.slice(0, lines.length)
+    let next = lines.length
+    const gap = 4200
+
+    // Waking up, the clock turns to now.
+    if (!still)
+      onReveal(root.closest('figure')!, () =>
+        lines.forEach((groups, r) =>
+          writeRow(
+            groups.filter((g) => g.dataset.col === 'time'),
+            { time: clock(r * gap) },
+            { delay: 300 + r * 120, stagger: 40 },
+          ),
+        ),
+      )
+
+    every(root, gap, () => {
+      shown.unshift(data[next++ % data.length])
+      shown.length = lines.length
+      lines.forEach((groups, r) =>
+        writeRow(
+          groups,
+          { ...shown[r], time: clock(r * gap) },
+          { delay: r * 180, stagger: 18, spins: r === 0 ? 3 : 2 },
+        ),
+      )
+    })
+  }
+</script>

@@ -1,0 +1,102 @@
+---
+/**
+ * The request log with requests in flight: a line opens the moment a
+ * request goes out, with a dashed status and its duration counting up live,
+ * and lands when the response comes back: the status rolls in and the path
+ * brightens. A few are in flight at once, each landing in its own time.
+ */
+import Figure from '@/components/data/Figure.astro'
+import type { LogEntry } from '@/data/demo'
+import Live from './Live.astro'
+import LogHead from './LogHead.astro'
+import LogLine from './LogLine.astro'
+import TickerStyles from './TickerStyles.astro'
+import { line, stamp } from './ticker'
+
+interface Props {
+  entries: LogEntry[]
+  rows?: number
+  /** A header for the card, with the live marker; none by default. */
+  title?: string
+  /** A footer naming the data's source; none by default. */
+  caption?: string
+  class?: string
+}
+
+const { entries, rows = 9, title, caption = '', class: className } = Astro.props
+const lines = entries.map(line)
+---
+
+<TickerStyles />
+<Figure title={title} caption={caption} class={className} bodyClass="">
+  {title && <Live slot="aside" />}
+  <div
+    data-ticker="inflight"
+    data-rows={rows}
+    data-entries={JSON.stringify(lines)}
+  >
+    <LogHead />
+    <ol
+      class="h-[calc(var(--rows)*(2.5rem+1px))] overflow-hidden"
+      style={`--rows: ${rows}`}
+      data-list
+    >
+      {lines.slice(0, rows).map((l, i) => <LogLine line={l} time={stamp(i)} />)}
+    </ol>
+    <template><LogLine pending /></template>
+  </div>
+</Figure>
+
+<script>
+  import { fresh } from '@/scripts/data/fresh'
+  import { formatMs } from '@/lib/chart'
+  import { fill, now, prepend, roll, tick, wake } from '@/scripts/data/ticker'
+  import type { Line } from '@/components/ticker/ticker'
+
+  for (const root of fresh('[data-ticker="inflight"]')) {
+    const data: Line[] = JSON.parse(root.dataset.entries!)
+    const list = root.querySelector<HTMLElement>('[data-list]')!
+    const template = root.querySelector('template')!
+    const rows = Number(root.dataset.rows)
+    let next = rows
+
+    wake(root)
+
+    tick(root, 1100, 2000, () => {
+      const v = data[next++ % data.length]
+      const el = prepend(list, template, rows)
+      const ms = el.querySelector<HTMLElement>('[data-f="ms"]')!
+      const path = el.querySelector<HTMLElement>('[data-path]')!
+      fill(
+        el,
+        {
+          time: now(),
+          status: '···',
+          kind: 'pending',
+          worker: v.worker,
+          path: v.path,
+        },
+        { delay: 220 },
+      )
+
+      // The duration counts while it's out; slow pages stay out longer.
+      const flight = Math.min(2800, Math.max(900, v.n * 2.4))
+      const start = performance.now() + 500
+      const frame = (t: number) => {
+        const p = Math.min(1, Math.max(0, (t - start) / flight))
+        ms.textContent = p > 0 ? formatMs(p * v.n) : ''
+        if (p < 1) requestAnimationFrame(frame)
+        else {
+          ms.textContent = v.ms
+          roll(el.querySelector<HTMLElement>('[data-f="status"]')!, v.status, {
+            stagger: 40,
+          })
+          el.querySelector<HTMLElement>('[data-f="status"]')!.dataset.kind =
+            v.kind
+          path.classList.remove('text-ink-muted')
+        }
+      }
+      requestAnimationFrame(frame)
+    })
+  }
+</script>

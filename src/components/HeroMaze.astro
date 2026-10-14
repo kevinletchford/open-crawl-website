@@ -18,6 +18,14 @@ import {
   ringFrontier,
 } from '@/scripts/hero-maze'
 
+interface Props {
+  /** Sizes and places the (square) maze; defaults to a hero column. */
+  class?: string
+}
+
+const { class: className = 'relative mx-auto mt-10 w-full max-w-xl lg:mt-0' } =
+  Astro.props
+
 const seed = 2026
 
 // Where the animation's crawl frontier starts: the same rule the script uses,
@@ -32,7 +40,7 @@ const crawl = frontiers[lo] + (frontiers[lo + 1] - frontiers[lo]) * (at - lo)
 ---
 
 <div
-  class="hero-maze relative mx-auto mt-10 aspect-square w-full max-w-xl opacity-20 lg:mt-0"
+  class:list={['hero-maze aspect-square opacity-20', className]}
   data-hero-maze
   data-seed={seed}
   data-crawl={crawl}
@@ -75,7 +83,11 @@ const crawl = frontiers[lo] + (frontiers[lo + 1] - frontiers[lo]) * (at - lo)
 
   const supportsWebGL = () => {
     try {
-      return !!document.createElement('canvas').getContext('webgl2')
+      const gl = document.createElement('canvas').getContext('webgl2')
+      // Hand the probe context back: browsers cap live contexts, and a leaked
+      // one can push a visible canvas out.
+      gl?.getExtension('WEBGL_lose_context')?.loseContext()
+      return !!gl
     } catch {
       return false
     }

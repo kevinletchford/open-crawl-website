@@ -1,0 +1,47 @@
+---
+/**
+ * One line of the request log: time, status, worker, path, duration. Every
+ * value sits in a `[data-f]` field, so the scripts can roll new ones in.
+ * Without a `line` it's the empty line the scripts copy for new requests.
+ */
+import type { Line } from './ticker'
+import { GRID } from './grid'
+
+interface Props {
+  line?: Line
+  time?: string
+  /** Start in flight: no status yet, and the line dimmed until it lands. */
+  pending?: boolean
+}
+
+const { line, time = '', pending = false } = Astro.props
+---
+
+<li class="overflow-hidden border-b border-line" data-line>
+  <div class:list={[GRID, 'h-10 items-center font-mono text-xs']}>
+    <span
+      class="truncate text-ink-muted tabular-nums max-sm:hidden"
+      data-f="time">{time}</span
+    >
+    <span
+      ><span class="tk-pill" data-f="status" data-kind={line?.kind}
+        >{line?.status}</span
+      ></span
+    >
+    <span class="truncate text-ink-muted max-sm:hidden" data-f="worker"
+      >{line?.worker}</span
+    >
+    <span
+      class:list={['tk-dim truncate', pending && 'text-ink-muted']}
+      data-path
+      ><span class="text-ink-muted">GET </span><span data-f="path"
+        >{line?.path}</span
+      ></span
+    >
+    <span
+      class="truncate text-right text-ink-muted tabular-nums"
+      data-f="ms"
+      data-count>{line?.ms}</span
+    >
+  </div>
+</li>

@@ -1,0 +1,34 @@
+---
+/**
+ * The crawl's requests on a split-flap board, in one of five treatments,
+ * all from the same request log:
+ *
+ * - `departures`: a station board, each request rolling the rest down.
+ * - `words`: the same, with a whole word on each flap.
+ * - `headline`: one request at a time, on large tiles.
+ * - `workers`: a line per worker, turning over independently.
+ * - `counters`: running totals on flip-clock digits.
+ */
+import Counters from './board/Counters.astro'
+import Departures from './board/Departures.astro'
+import Headline from './board/Headline.astro'
+import Workers from './board/Workers.astro'
+import type { LogEntry } from '@/data/demo'
+
+interface Props {
+  entries: LogEntry[]
+  variant?: 'departures' | 'words' | 'headline' | 'workers' | 'counters'
+  class?: string
+}
+const { entries, variant = 'departures', class: className } = Astro.props
+---
+
+{variant === 'departures' && <Departures entries={entries} class={className} />}
+{
+  variant === 'words' && (
+    <Departures entries={entries} words class={className} />
+  )
+}
+{variant === 'headline' && <Headline entries={entries} class={className} />}
+{variant === 'workers' && <Workers entries={entries} class={className} />}
+{variant === 'counters' && <Counters entries={entries} class={className} />}

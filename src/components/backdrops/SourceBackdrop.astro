@@ -1,0 +1,75 @@
+---
+/**
+ * The page as a crawler sees it: a wall of faint source — markup, robots
+ * rules and response headers — with the few lines an AI agent actually reads
+ * picked out at full strength.
+ *
+ * Use in a `Section`'s `backdrop` slot; position it with `class`.
+ */
+import { mulberry32 } from '@/lib/maze/rng'
+
+interface Props {
+  seed?: number
+  /** Lines of source to draw. */
+  lines?: number
+  class?: string
+}
+
+const { seed = 3, lines = 48, class: className = 'inset-0' } = Astro.props
+
+const SOURCE = [
+  'HTTP/2 200  content-type: text/html; charset=utf-8',
+  'user-agent: GPTBot          allow: /',
+  'user-agent: ClaudeBot       allow: /docs/',
+  'user-agent: *               disallow: /admin/',
+  '<link rel="canonical" href="https://example.com/pricing">',
+  '<meta name="description" content="Plans for teams of every size.">',
+  '<script type="application/ld+json">{"@type":"Product","name":…}</script>',
+  '<h1>Pricing that scales with your crawl budget</h1>',
+  '<div id="__next"><div class="app-shell" data-hydrate="true"></div>',
+  '<nav aria-label="Main"><a href="/product">Product</a><a href="/docs">Docs</a>',
+  '<p>Every plan includes unlimited seats and a 14-day trial.</p>',
+  'sitemap: https://example.com/sitemap.xml',
+  '<noscript>Enable JavaScript to view this page.</noscript>',
+  '<img src="/hero.avif" alt="Dashboard showing crawl coverage" loading="lazy">',
+  'cache-control: public, max-age=600   x-robots-tag: all',
+  '<a href="/blog/how-agents-read" rel="next">How agents read your site</a>',
+  '<section class="faq"><h2>Frequently asked</h2><details><summary>…',
+  '<footer><small>© 2026 Example Inc.</small></footer></body></html>',
+]
+
+const rng = mulberry32(seed)
+const rows = Array.from({ length: lines }, () => ({
+  text: SOURCE[Math.floor(rng() * SOURCE.length)],
+  indent: Math.floor(rng() * 4) * 2,
+  read: rng() < 0.12,
+}))
+---
+
+<div
+  class:list={['source-backdrop pointer-events-none absolute -z-10', className]}
+  aria-hidden="true"
+>
+  <div class="font-mono text-[12px] leading-6 whitespace-nowrap">
+    {
+      rows.map((row) => (
+        <div
+          class:list={[row.read ? 'text-white/35' : 'text-white/[0.09]']}
+          style={`padding-left: ${row.indent}ch`}
+        >
+          {row.text}
+        </div>
+      ))
+    }
+  </div>
+</div>
+
+<style>
+  .source-backdrop {
+    overflow: hidden;
+    mask-image:
+      linear-gradient(to right, transparent, #000 15%, #000 70%, transparent),
+      linear-gradient(to bottom, transparent, #000 20%, #000 75%, transparent);
+    mask-composite: intersect;
+  }
+</style>

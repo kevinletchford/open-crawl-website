@@ -153,3 +153,6 @@ worker/worker-configuration.d.ts
 
 # Storybook build output
 storybook-static/
+
+# macOS
+.DS_Store

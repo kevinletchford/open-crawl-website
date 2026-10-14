@@ -1,0 +1,49 @@
+---
+/**
+ * The "how it works" steps from `src/data/steps.ts`, in one of six
+ * treatments:
+ *
+ * - `rail`: numbered nodes on one rail, a snippet under each step.
+ * - `stepper`: tabs over one panel, playing through the steps on their own.
+ * - `session`: the steps beside one terminal session, a block per step.
+ * - `count`: what each step leaves you with, counting up.
+ * - `maze`: checkpoints on the crawl's route through a maze.
+ * - `journey`: rail, stepper and maze in one; each step fills in turn and
+ *   stays filled.
+ *
+ * Content only; wrap it in a `Section` for the band.
+ */
+import Count from './steps/Count.astro'
+import Journey from './steps/Journey.astro'
+import MazeSteps from './steps/MazeSteps.astro'
+import Rail from './steps/Rail.astro'
+import Session from './steps/Session.astro'
+import Stepper from './steps/Stepper.astro'
+import { STEPS_HEADING } from '@/data/steps'
+
+interface Props {
+  variant?: 'rail' | 'stepper' | 'session' | 'count' | 'maze' | 'journey'
+  heading?: string
+  class?: string
+}
+const {
+  variant = 'rail',
+  heading = STEPS_HEADING,
+  class: className,
+} = Astro.props
+const Variant = {
+  rail: Rail,
+  stepper: Stepper,
+  session: Session,
+  count: Count,
+  maze: MazeSteps,
+  journey: Journey,
+}[variant]
+---
+
+<div class={className}>
+  <h2 class="max-w-2xl text-4xl font-semibold tracking-tight text-balance">
+    {heading}
+  </h2>
+  <Variant class="mt-14" />
+</div>

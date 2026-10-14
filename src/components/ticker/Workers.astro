@@ -1,0 +1,126 @@
+---
+/**
+ * The request log a line per worker: each line shows the request that
+ * worker is on and rolls over in place when it moves to the next, the old
+ * characters lifting out as the new ones rise in. Only what changed moves,
+ * so the paths share their leading slash and `/docs/` stays put.
+ */
+import Figure from '@/components/data/Figure.astro'
+import type { LogEntry } from '@/data/demo'
+import Live from './Live.astro'
+import TickerStyles from './TickerStyles.astro'
+import { line, stamp } from './ticker'
+
+interface Props {
+  entries: LogEntry[]
+  title?: string
+  caption?: string
+  class?: string
+}
+
+const { entries, title = 'Workers', caption, class: className } = Astro.props
+const lines = entries.map(line)
+const workers = [...new Set(entries.map((e) => e.worker))].sort()
+const shown = workers.map((w, i) => ({
+  ...lines[entries.findIndex((e) => e.worker === w)],
+  time: stamp(i, 900),
+  done: String(40 + w * 13),
+}))
+const GRID =
+  'grid grid-cols-[4.5rem_3.5rem_1fr_3.5rem] gap-3 px-6 sm:grid-cols-[4.5rem_3.5rem_1fr_7.25rem_3.5rem_4rem] sm:px-8'
+---
+
+<TickerStyles />
+<Figure title={title} caption={caption} class={className} bodyClass="">
+  <Live slot="aside" />
+  <div data-ticker="workers" data-entries={JSON.stringify(lines)}>
+    <div
+      class:list={[
+        GRID,
+        'border-b border-line py-2 font-mono text-xs text-ink-muted',
+      ]}
+      aria-hidden="true"
+    >
+      <span>Worker</span>
+      <span>Status</span>
+      <span>Path</span>
+      <span class="max-sm:hidden">At</span>
+      <span class="text-right">Duration</span>
+      <span class="text-right max-sm:hidden">Fetched</span>
+    </div>
+    <ol>
+      {
+        shown.map((v) => (
+          <li class="border-b border-line last:border-0" data-worker={v.worker}>
+            <div class:list={[GRID, 'h-12 items-center font-mono text-xs']}>
+              <span class="text-ink-muted">{v.worker}</span>
+              <span>
+                <span class="tk-pill" data-f="status" data-kind={v.kind}>
+                  {v.status}
+                </span>
+              </span>
+              <span class="truncate" data-f="path">
+                {v.path}
+              </span>
+              <span
+                class="text-ink-muted tabular-nums max-sm:hidden"
+                data-f="time"
+              >
+                {v.time}
+              </span>
+              <span
+                class="text-right text-ink-muted tabular-nums"
+                data-f="ms"
+                data-count
+              >
+                {v.ms}
+              </span>
+              <span
+                class="text-right tabular-nums max-sm:hidden"
+                data-f="done"
+                data-count
+              >
+                {v.done}
+              </span>
+            </div>
+          </li>
+        ))
+      }
+    </ol>
+  </div>
+</Figure>
+
+<script>
+  import { fresh } from '@/scripts/data/fresh'
+  import { fill, now, tick, wake, wash } from '@/scripts/data/ticker'
+  import type { Line } from '@/components/ticker/ticker'
+
+  for (const root of fresh('[data-ticker="workers"]')) {
+    const data: Line[] = JSON.parse(root.dataset.entries!)
+    const lines = new Map(
+      [...root.querySelectorAll<HTMLElement>('[data-worker]')].map((el) => [
+        el.dataset.worker!,
+        el,
+      ]),
+    )
+    let next = lines.size
+
+    wake(root, 900)
+
+    tick(root, 1300, 2200, () => {
+      const v = data[next++ % data.length]
+      const el = lines.get(v.worker)
+      if (!el) return
+      const done = el.querySelector<HTMLElement>('[data-f="done"]')!
+      wash(el)
+      fill(el, {
+        ...v,
+        time: now(),
+        done: String(
+          Number(done.getAttribute('aria-label') ?? done.textContent!.trim()) +
+            1,
+        ),
+      })
+    })
+  }
+</script>

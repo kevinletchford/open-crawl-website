@@ -1,14 +1,21 @@
 ---
 /**
- * A benchmark as a race: one maze per runtime (all the same maze), each
- * flooded by a crawl at a speed proportional to that runtime's measured
- * requests per second. Starts when scrolled into view; replayable.
+ * A benchmark as a race: one maze per runtime, each with a counter that
+ * runs up to that runtime's measured requests per second over a time in
+ * proportion to its speed. Runs once, when scrolled into view.
  *
- * Corridors are pre-rendered at build time, tagged with their crawl step;
- * the script only flips opacity as each crawl's step count advances.
+ * Every maze is its runtime's initial, carved as a maze from the same seed
+ * on an open floor inside the rim: G for Go, T for TypeScript, R for Rust.
+ * The rim's doorway leads straight into the letter. Walls only, unfilled:
+ * faint at rest, full ink on hover.
  */
-import { cellFloorPath, crawl, generateMaze, mazeWallsPath } from '@/lib/maze'
-import type { BenchmarkRun } from '@/data/benchmarks'
+import {
+  generateMaze,
+  glyphRegion,
+  mazeWallsPath,
+  type Glyph,
+} from '@/lib/maze'
+import type { BenchmarkResult, BenchmarkRun } from '@/data/benchmarks'
 
 interface Props {
   run: BenchmarkRun
@@ -23,43 +30,49 @@ const {
   run,
   duration = 2.6,
   seed = 7,
-  rings = 5,
+  rings = 7,
   class: className,
 } = Astro.props
 
-const maze = generateMaze({ seed, rings, cross: false })
-const { cellDistance, maxDistance } = crawl(maze)
-const walls = mazeWallsPath(maze)
-const floors = maze.cells.map((cell) => ({
-  d: cellFloorPath(maze, cell),
-  step: cellDistance[cell.id],
-}))
-const r = maze.outerRadius
-const viewBox = `${-r} ${-r} ${r * 2} ${r * 2}`
+const GLYPHS: Record<BenchmarkResult['runtime'], Glyph> = {
+  Go: 'G',
+  TypeScript: 'T',
+  Rust: 'R',
+}
+
+// Long cells and thin walls keep the letters open; a small eye leaves them
+// room at the centre.
+const racers = run.results.map((result) => {
+  const maze = generateMaze({
+    seed,
+    rings,
+    eye: 0.6,
+    wall: 0.45,
+    cellLength: 1.2,
+    region: glyphRegion(GLYPHS[result.runtime]),
+    regionOnly: true,
+  })
+  return { result, walls: mazeWallsPath(maze), r: maze.outerRadius }
+})
 const fastest = Math.max(...run.results.map((result) => result.rps))
 const number = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 })
 ---
 
-<figure
-  class:list={['maze-race', className]}
-  data-maze-race
-  data-max-step={maxDistance}
->
+<figure class:list={['maze-race', className]} data-maze-race>
   <div class="grid grid-cols-3 gap-4 sm:gap-8">
     {
-      run.results.map((result) => (
+      racers.map(({ result, walls, r }) => (
         <div
-          class="text-center"
+          class="race-racer text-center"
           data-racer
           data-duration={(duration * fastest) / result.rps}
         >
-          <svg viewBox={viewBox} class="w-full" aria-hidden="true">
-            <g class="race-trail">
-              {floors.map((floor) => (
-                <path d={floor.d} data-step={floor.step} />
-              ))}
-            </g>
-            <path d={walls} fill="currentColor" />
+          <svg
+            viewBox={`${-r} ${-r} ${r * 2} ${r * 2}`}
+            class="w-full"
+            aria-hidden="true"
+          >
+            <path d={walls} fill="currentColor" class="race-walls" />
           </svg>
           <p class="mt-3 text-sm font-medium">{result.runtime}</p>
           <p class="font-mono text-xs text-ink-muted">
@@ -72,42 +85,22 @@ const number = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 })
       ))
     }
   </div>
-  <noscript>
-    <style is:inline>
-      .race-trail path {
-        opacity: 0.16 !important;
-      }
-    </style>
-  </noscript>
-  <figcaption
-    class="mt-6 flex flex-wrap items-center justify-between gap-3 text-xs text-ink-muted"
-  >
-    <span>
-      Each maze fills at its runtime’s measured speed ({
-        run.title.toLowerCase()
-      },
-      {run.passes > 1 ? ` ${run.passes}-pass average` : ' single pass'}).
-    </span>
-    <button
-      type="button"
-      class="btn btn-ghost px-3 py-1 text-xs"
-      data-race-replay
-      hidden>Replay</button
-    >
+  <figcaption class="mt-6 text-xs text-ink-muted">
+    Each counter runs at its runtime’s measured speed ({
+      run.title.toLowerCase()
+    },
+    {run.passes > 1 ? ` ${run.passes}-pass average` : ' single pass'}).
   </figcaption>
 </figure>
 
 <style>
-  .race-trail path {
-    fill: var(--color-ink);
-    opacity: 0;
-    transition: opacity 0.25s;
+  /* Faint at rest; full ink on hover. */
+  .race-walls {
+    fill-opacity: 0.2;
+    transition: fill-opacity 0.3s;
   }
-  :global(.band-dark) .race-trail path {
-    fill: var(--color-night-ink);
-  }
-  .race-trail path.is-crawled {
-    opacity: 0.16;
+  .race-racer:hover .race-walls {
+    fill-opacity: 1;
   }
 </style>
 
@@ -118,71 +111,34 @@ const number = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 })
   for (const race of document.querySelectorAll<HTMLElement>(
     '[data-maze-race]',
   )) {
-    const maxStep = Number(race.dataset.maxStep)
-    const replay = race.querySelector<HTMLButtonElement>('[data-race-replay]')!
     const racers = [...race.querySelectorAll<HTMLElement>('[data-racer]')].map(
       (el) => {
-        // Bucket the corridors by crawl step, so each frame touches only the
-        // corridors that were reached since the last one.
-        const buckets: Element[][] = Array.from(
-          { length: maxStep + 1 },
-          () => [],
-        )
-        for (const path of el.querySelectorAll('[data-step]')) {
-          buckets[Number(path.getAttribute('data-step'))]?.push(path)
-        }
         const counter = el.querySelector<HTMLElement>('[data-racer-rps]')!
         return {
           duration: Number(el.dataset.duration) * 1000,
-          buckets,
           counter,
           rps: Number(counter.dataset.rps),
-          shown: -1,
         }
       },
     )
 
-    const show = (racer: (typeof racers)[number], upTo: number) => {
-      for (let step = racer.shown + 1; step <= upTo; step++) {
-        for (const path of racer.buckets[step]) path.classList.add('is-crawled')
-      }
-      racer.shown = Math.max(racer.shown, upTo)
-    }
-
-    const reset = () => {
-      for (const racer of racers) {
-        for (const bucket of racer.buckets) {
-          for (const path of bucket) path.classList.remove('is-crawled')
-        }
-        racer.shown = -1
-        racer.counter.textContent = '0'
-      }
-    }
-
     const run = () => {
-      reset()
-      replay.hidden = true
+      for (const racer of racers) racer.counter.textContent = '0'
       const start = performance.now()
       const tick = (now: number) => {
         let done = true
         for (const racer of racers) {
           const t = Math.min(1, (now - start) / racer.duration)
-          show(racer, Math.floor(t * maxStep))
           racer.counter.textContent = number.format(racer.rps * t)
           if (t < 1) done = false
         }
-        if (done) replay.hidden = false
-        else requestAnimationFrame(tick)
+        if (!done) requestAnimationFrame(tick)
       }
       requestAnimationFrame(tick)
     }
 
-    if (still) {
-      for (const racer of racers) show(racer, maxStep)
-      continue
-    }
+    if (still) continue
 
-    replay.addEventListener('click', run)
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (!entry.isIntersecting) return

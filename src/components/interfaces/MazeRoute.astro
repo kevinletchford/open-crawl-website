@@ -1,0 +1,254 @@
+---
+/**
+ * The interfaces as the ways into and out of a maze: inputs are doors on
+ * the left wall, outputs doors on the right, and the crawl finds its way
+ * between them. It steps through the pairs on its own; hover or focus a
+ * door to send the route through it.
+ *
+ * The maze is perfect, so each pair has exactly one route. All of them are
+ * worked out at build time; the script only chooses which to draw.
+ */
+import { INPUTS, OUTPUTS } from '@/data/interfaces'
+import { generateGridMaze, gridFlood, gridWallsPath } from '@/lib/maze/grid'
+import { mulberry32 } from '@/lib/maze/rng'
+
+interface Props {
+  seed?: number
+  class?: string
+}
+const { seed = 5, class: className } = Astro.props
+
+const cols = 28
+const rows = 12
+const size = 10
+const maze = generateGridMaze(cols, rows, mulberry32(seed))
+const walls = gridWallsPath(maze, size)
+
+// The row each door sits on, spread down its wall.
+const doorRow = (i: number, n: number) => Math.floor(((i + 0.5) / n) * rows)
+const inRows = INPUTS.map((_, i) => doorRow(i, INPUTS.length))
+const outRows = OUTPUTS.map((_, i) => doorRow(i, OUTPUTS.length))
+
+const centre = (id: number) =>
+  [((id % cols) + 0.5) * size, (Math.floor(id / cols) + 0.5) * size] as const
+
+// One flood per input door; the parent links walk back from any exit.
+const routes = inRows.map((row) => {
+  const start = row * cols
+  const { parent } = gridFlood(maze, [start])
+  return outRows.map((outRow) => {
+    let id = (outRow + 1) * cols - 1
+    const cells = [id]
+    while (id !== start) {
+      id = parent[id]
+      cells.push(id)
+    }
+    cells.reverse()
+    const [x0, y0] = centre(cells[0])
+    const [, y1] = centre(cells[cells.length - 1])
+    return (
+      `M0 ${y0}H${x0}` +
+      cells
+        .slice(1)
+        .map((c) => `L${centre(c).join(' ')}`)
+        .join('') +
+      `L${cols * size} ${y1}`
+    )
+  })
+})
+
+const W = cols * size
+const H = rows * size
+const pct = (row: number) => ((row + 0.5) / rows) * 100
+---
+
+<div
+  class:list={[
+    'grid items-stretch gap-5 sm:grid-cols-[9rem_1fr_9rem]',
+    className,
+  ]}
+  data-maze-route
+  data-reveal
+>
+  <ul class="relative max-sm:hidden" aria-label="Drive it from">
+    {
+      INPUTS.map((item, i) => (
+        <li
+          class="absolute right-0 -translate-y-1/2"
+          style={`top: ${pct(inRows[i])}%`}
+        >
+          <button
+            type="button"
+            class="door font-mono text-sm whitespace-nowrap text-ink-muted transition-colors"
+            data-in={i}
+          >
+            {item.name} →
+          </button>
+        </li>
+      ))
+    }
+  </ul>
+
+  <svg
+    viewBox={`-1 -1 ${W + 2} ${H + 2}`}
+    class="w-full text-ink"
+    aria-hidden="true"
+  >
+    <path
+      d={walls}
+      fill="none"
+      stroke="currentColor"
+      stroke-opacity="0.3"
+      stroke-width="1.5"
+      stroke-linecap="square"></path>
+    {
+      // Doors: cut the outer wall where each one opens.
+      [
+        ...inRows.map((r) => [0, r] as const),
+        ...outRows.map((r) => [W, r] as const),
+      ].map(([x, r]) => (
+        <rect
+          x={x - 2}
+          y={r * size + 1}
+          width="4"
+          height={size - 2}
+          class="fill-surface"
+        />
+      ))
+    }
+    {
+      routes.map((outs, i) =>
+        outs.map((d, j) => (
+          <path
+            d={d}
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            pathLength="1"
+            class="route"
+            data-route={`${i}-${j}`}
+          />
+        )),
+      )
+    }
+  </svg>
+
+  <ul class="relative max-sm:hidden" aria-label="Send results to">
+    {
+      OUTPUTS.map((item, j) => (
+        <li
+          class="absolute left-0 -translate-y-1/2"
+          style={`top: ${pct(outRows[j])}%`}
+        >
+          <button
+            type="button"
+            class="door font-mono text-sm whitespace-nowrap text-ink-muted transition-colors"
+            data-out={j}
+          >
+            → {item.name}
+          </button>
+        </li>
+      ))
+    }
+  </ul>
+
+  <p
+    class="text-center font-mono text-sm sm:hidden"
+    aria-hidden="true"
+    data-maze-caption
+  >
+    {INPUTS[0].name} → {OUTPUTS[0].name}
+  </p>
+</div>
+
+<style>
+  .route {
+    stroke-dasharray: 1 2;
+    stroke-dashoffset: 1.02;
+    opacity: 0;
+  }
+  .route.on {
+    opacity: 1;
+    stroke-dashoffset: 0;
+    transition: stroke-dashoffset 1.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .door.on {
+    color: var(--color-ink);
+    font-weight: 600;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .route.on {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  import { fresh } from '@/scripts/data/fresh'
+  import { onReveal, scan, still } from '@/scripts/data/reveal'
+
+  // Not in a Figure, so watch for the reveal here.
+  queueMicrotask(scan)
+
+  for (const root of fresh('[data-maze-route]')) {
+    const ins = [...root.querySelectorAll<HTMLElement>('[data-in]')]
+    const outs = [...root.querySelectorAll<HTMLElement>('[data-out]')]
+    // Small screens hide the doors' labels and name the pair underneath.
+    const caption = root.querySelector<HTMLElement>('[data-maze-caption]')!
+    const name = (el: HTMLElement) => el.textContent!.replace('→', '').trim()
+    let pair = [0, 0]
+    let held = false
+
+    const draw = (i: number, j: number) => {
+      pair = [i, j]
+      ins.forEach((el, k) => el.classList.toggle('on', k === i))
+      outs.forEach((el, k) => el.classList.toggle('on', k === j))
+      caption.textContent = `${name(ins[i])} → ${name(outs[j])}`
+      for (const route of root.querySelectorAll('.route')) {
+        route.classList.remove('on')
+      }
+      const route = root.querySelector(`[data-route="${i}-${j}"]`)!
+      // Restart the stroke from the door.
+      void (route as SVGPathElement).getBoundingClientRect()
+      route.classList.add('on')
+    }
+
+    const hold = (fn: () => void) => () => {
+      held = true
+      fn()
+    }
+    const release = () => (held = false)
+    ins.forEach((el, i) => {
+      for (const type of ['pointerenter', 'focus', 'click'])
+        el.addEventListener(
+          type,
+          hold(() => draw(i, pair[1])),
+        )
+      el.addEventListener('pointerleave', release)
+      el.addEventListener('blur', release)
+    })
+    outs.forEach((el, j) => {
+      for (const type of ['pointerenter', 'focus', 'click'])
+        el.addEventListener(
+          type,
+          hold(() => draw(pair[0], j)),
+        )
+      el.addEventListener('pointerleave', release)
+      el.addEventListener('blur', release)
+    })
+
+    onReveal(root, () => {
+      draw(0, 0)
+      if (still) return
+      // Walk every pair: next input each time, output shifting along.
+      let n = 0
+      window.setInterval(() => {
+        if (held || document.hidden) return
+        n++
+        draw(n % ins.length, (n + Math.floor(n / ins.length)) % outs.length)
+      }, 2600)
+    })
+  }
+</script>

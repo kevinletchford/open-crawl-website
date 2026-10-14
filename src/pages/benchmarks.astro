@@ -1,8 +1,8 @@
 ---
-import InviteCTA from '@/components/InviteCTA.astro'
+import CtaCommand from '@/components/cta/CtaCommand.astro'
 import MazeRace from '@/components/MazeRace.astro'
 import Section from '@/components/Section.astro'
-import ShaderBackdrop from '@/components/ShaderBackdrop.astro'
+import CrawlGridBackdrop from '@/components/backdrops/CrawlGridBackdrop.astro'
 import { RUNS } from '@/data/benchmarks'
 import BaseLayout from '@/layouts/BaseLayout.astro'
 
@@ -34,10 +34,12 @@ const method = [
   description="How fast the OpenCrawl engine crawls, in Go, Rust and TypeScript — against a synthetic site and the live web."
 >
   <Section tone="dark" innerClass="pt-20 pb-20 sm:pt-28">
-    <ShaderBackdrop
+    <CrawlGridBackdrop
       slot="backdrop"
+      variant="flood"
       seed={33450}
-      class="-top-1/4 -right-1/4 w-[48rem]"
+      fade="left"
+      class="inset-y-0 right-0 w-[56rem] opacity-50"
     />
     <h1
       class="max-w-3xl text-5xl font-semibold tracking-tight text-balance sm:text-6xl"
@@ -132,5 +134,5 @@ const method = [
     })
   }
 
-  <InviteCTA heading="Want this engine on your site?" />
+  <CtaCommand variant="typed" heading="Want this engine in your pipeline?" />
 </BaseLayout>

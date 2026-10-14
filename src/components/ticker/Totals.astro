@@ -1,0 +1,138 @@
+---
+/**
+ * The request log under the crawl's running totals. Each request opens a
+ * line in the log and turns the totals above it on odometer wheels: pages
+ * crawled, errors, average response, requests a second.
+ */
+import Figure from '@/components/data/Figure.astro'
+import type { LogEntry } from '@/data/demo'
+import { formatMs, formatNumber } from '@/lib/chart'
+import Live from './Live.astro'
+import LogHead from './LogHead.astro'
+import LogLine from './LogLine.astro'
+import TickerStyles from './TickerStyles.astro'
+import { line, stamp } from './ticker'
+
+interface Props {
+  entries: LogEntry[]
+  rows?: number
+  /** Pages already crawled when the log starts. */
+  pages?: number
+  errors?: number
+  title?: string
+  caption?: string
+  class?: string
+}
+
+const {
+  entries,
+  rows = 6,
+  pages = 1742,
+  errors = 23,
+  title = 'This crawl',
+  caption,
+  class: className,
+} = Astro.props
+const lines = entries.map(line)
+const avg = entries.reduce((s, e) => s + e.ms, 0) / entries.length
+const TOTALS = [
+  { key: 'pages', head: 'Pages', value: formatNumber(pages) },
+  { key: 'errors', head: 'Errors', value: formatNumber(errors) },
+  { key: 'avg', head: 'Average response', value: formatMs(avg) },
+  { key: 'rate', head: 'Per second', value: '0.6' },
+]
+---
+
+<TickerStyles />
+<Figure title={title} caption={caption} class={className} bodyClass="">
+  <Live slot="aside" />
+  <div
+    data-ticker="totals"
+    data-rows={rows}
+    data-entries={JSON.stringify(lines)}
+    data-pages={pages}
+    data-errors={errors}
+    data-avg={avg}
+  >
+    <dl
+      class="grid grid-cols-2 border-b border-line sm:grid-cols-4"
+      data-totals
+    >
+      {
+        TOTALS.map((t, i) => (
+          <div
+            class:list={[
+              'px-6 py-5 sm:px-8 sm:py-6',
+              'border-line',
+              i % 2 === 1 && 'border-l',
+              i >= 2 && 'max-sm:border-t sm:border-l',
+            ]}
+          >
+            <dt class="text-xs text-ink-muted">{t.head}</dt>
+            <dd
+              class="mt-2 font-mono text-2xl tracking-tight tabular-nums sm:text-3xl"
+              data-f={t.key}
+              data-count
+            >
+              {t.value}
+            </dd>
+          </div>
+        ))
+      }
+    </dl>
+    <LogHead />
+    <ol
+      class="h-[calc(var(--rows)*(2.5rem+1px))] overflow-hidden"
+      style={`--rows: ${rows}`}
+      data-list
+    >
+      {lines.slice(0, rows).map((l, i) => <LogLine line={l} time={stamp(i)} />)}
+    </ol>
+    <template><LogLine /></template>
+  </div>
+</Figure>
+
+<script>
+  import { fresh } from '@/scripts/data/fresh'
+  import { formatMs, formatNumber } from '@/lib/chart'
+  import { fill, now, prepend, tick, wake } from '@/scripts/data/ticker'
+  import type { Line } from '@/components/ticker/ticker'
+
+  for (const root of fresh('[data-ticker="totals"]')) {
+    const data: Line[] = JSON.parse(root.dataset.entries!)
+    const list = root.querySelector<HTMLElement>('[data-list]')!
+    const template = root.querySelector('template')!
+    const totals = root.querySelector<HTMLElement>('[data-totals]')!
+    const rows = Number(root.dataset.rows)
+    let pages = Number(root.dataset.pages)
+    let errors = Number(root.dataset.errors)
+    let avg = Number(root.dataset.avg)
+    let last = performance.now()
+    let rate = 0.6
+    let next = rows
+
+    wake(root)
+
+    tick(root, 1300, 2300, () => {
+      const v = data[next++ % data.length]
+      const t = performance.now()
+      rate = rate * 0.7 + (1000 / (t - last)) * 0.3
+      last = t
+      pages++
+      if (v.error) errors++
+      avg = avg * 0.92 + v.n * 0.08
+      fill(prepend(list, template, rows), { ...v, time: now() }, { delay: 220 })
+      // The totals turn as the line lands.
+      fill(
+        totals,
+        {
+          pages: formatNumber(pages),
+          errors: formatNumber(errors),
+          avg: formatMs(avg),
+          rate: rate.toFixed(1),
+        },
+        { delay: 520, gap: 90 },
+      )
+    })
+  }
+</script>

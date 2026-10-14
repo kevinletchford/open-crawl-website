@@ -1,0 +1,149 @@
+---
+/**
+ * The crawl's running totals on flip-clock digits, with the request that
+ * moved them on a line beneath. Each request adds a page, so mostly just the
+ * last digit turns; an error or a slow page moves the others.
+ */
+import Figure from '@/components/data/Figure.astro'
+import type { LogEntry } from '@/data/demo'
+import { formatMs } from '@/lib/chart'
+import FlapText from './FlapText.astro'
+import { type Column, fitStyle, values } from './board'
+
+interface Props {
+  entries: LogEntry[]
+  /** Pages already crawled when the board starts. */
+  pages?: number
+  errors?: number
+  class?: string
+}
+
+const { entries, pages = 1742, errors = 23, class: className } = Astro.props
+
+const avg = Math.round(entries.reduce((s, e) => s + e.ms, 0) / entries.length)
+const TOTALS: (Column & { value: string })[] = [
+  {
+    key: 'pages',
+    head: 'Pages',
+    width: 5,
+    value: String(pages).padStart(5, '0'),
+  },
+  {
+    key: 'errors',
+    head: 'Errors',
+    width: 3,
+    value: String(errors).padStart(3, '0'),
+  },
+  {
+    key: 'avg',
+    head: 'Average response',
+    width: 5,
+    align: 'right',
+    value: formatMs(avg).toUpperCase(),
+  },
+]
+const LINE: Column[] = [
+  { key: 'path', head: 'Path', width: 20, mobile: 16 },
+  { key: 'status', head: 'Status', width: 3 },
+  { key: 'ms', head: 'Took', width: 5, mobile: 0, align: 'right', muted: true },
+]
+const data = entries.map(values)
+---
+
+<Figure
+  title="This crawl"
+  class={className}
+  bodyClass="px-6 py-8 sm:px-10 sm:py-10"
+>
+  <div
+    class="flap-board space-y-10"
+    data-board="counters"
+    data-entries={JSON.stringify(
+      entries.map((e, i) => ({ ...data[i], n: e.ms, err: e.status >= 400 })),
+    )}
+    data-pages={pages}
+    data-errors={errors}
+    data-avg={avg}
+  >
+    <div
+      class="flap-fit flex justify-between font-mono"
+      style={fitStyle(TOTALS, 40)}
+    >
+      {
+        TOTALS.map((col) => (
+          <div
+            class:list={[
+              'flex flex-col gap-[0.35em]',
+              col.align === 'right' && 'items-end',
+            ]}
+          >
+            <FlapText
+              col={col.key}
+              text={col.value}
+              width={col.width}
+              align={col.align}
+            />
+            <span class="font-sans text-xs text-ink-muted">{col.head}</span>
+          </div>
+        ))
+      }
+    </div>
+    <div class="border-t border-line pt-6">
+      <div
+        class="flap-fit flex justify-between font-mono"
+        style={fitStyle(LINE, 14)}
+      >
+        {
+          LINE.map((col) => (
+            <FlapText
+              col={col.key}
+              text={data[0][col.key]}
+              width={col.width}
+              mobile={col.mobile}
+              align={col.align}
+              muted={col.muted}
+            />
+          ))
+        }
+      </div>
+    </div>
+  </div>
+</Figure>
+
+<script>
+  import { fresh } from '@/scripts/data/fresh'
+  import { formatMs } from '@/lib/chart'
+  import { DIGITS, every, row, writeRow } from '@/scripts/data/flap'
+
+  type Entry = Record<string, string> & { n: number; err: boolean }
+
+  for (const root of fresh('[data-board="counters"]')) {
+    const data: Entry[] = JSON.parse(root.dataset.entries!)
+    const groups = row(root)
+    const totals = groups.filter((g) =>
+      ['pages', 'errors', 'avg'].includes(g.dataset.col!),
+    )
+    const line = groups.filter((g) => !totals.includes(g))
+    let pages = Number(root.dataset.pages)
+    let errors = Number(root.dataset.errors)
+    let avg = Number(root.dataset.avg)
+    let next = 1
+
+    every(root, 1800, () => {
+      const v = data[next++ % data.length]
+      pages++
+      if (v.err) errors++
+      avg = avg * 0.92 + v.n * 0.08
+      writeRow(line, v, { stagger: 22 })
+      writeRow(
+        totals,
+        {
+          pages: String(pages).padStart(5, '0'),
+          errors: String(errors).padStart(3, '0'),
+          avg: formatMs(avg).toUpperCase(),
+        },
+        { delay: 500, stagger: 30, drum: DIGITS, spins: 1, settle: 420 },
+      )
+    })
+  }
+</script>

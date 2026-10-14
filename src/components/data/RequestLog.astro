@@ -1,7 +1,7 @@
 ---
 /**
  * A tailing log of the crawler's requests, like Stripe's developer logs:
- * time, status, agent, path, duration. New requests slide in at the top;
+ * time, status, worker, path, duration. New requests slide in at the top;
  * click one to open its request and response, and the rule that decided
  * it when a rule did.
  *
@@ -67,12 +67,12 @@ const clock = (i: number) => {
     >
       <span class="max-sm:hidden">Time</span>
       <span>Status</span>
-      <span class="max-sm:hidden">Agent</span>
+      <span class="max-sm:hidden">Worker</span>
       <span>Path</span>
       <span class="text-right">Duration</span>
     </div>
     <ol
-      class="h-[calc(var(--rows)*(2.5rem+1px))] overflow-hidden font-mono text-xs"
+      class="h-[calc(var(--rows)*(2.5rem+1px))] overflow-hidden font-mono text-xs [overflow-anchor:none]"
       style={`--rows: ${rows}`}
       aria-live="off"
       data-log-list
@@ -108,7 +108,7 @@ const clock = (i: number) => {
                 )}
               </span>
               <span class="truncate text-ink-muted max-sm:hidden">
-                {entry.agent}
+                worker {entry.worker}
               </span>
               <span class="truncate">
                 <span class="text-ink-muted">{entry.method} </span>
@@ -132,7 +132,7 @@ const clock = (i: number) => {
               <p>
                 User-Agent:{' '}
                 <span class="text-ink">
-                  Mozilla/5.0 (compatible; {entry.agent})
+                  OpenCrawl/0.9 (+https://open-crawl.com/bot)
                 </span>
               </p>
               <p class="pt-2">

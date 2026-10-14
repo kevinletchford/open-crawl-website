@@ -14,6 +14,15 @@ export function linearScale(
   return (value) => r0 + ((value - d0) / span) * (r1 - r0)
 }
 
+/** Maps [d0, d1] onto [r0, r1] by order of magnitude. Domain must be > 0. */
+export function logScale(
+  [d0, d1]: [number, number],
+  [r0, r1]: [number, number],
+): Scale {
+  const inner = linearScale([Math.log10(d0), Math.log10(d1)], [r0, r1])
+  return (value) => inner(Math.log10(value))
+}
+
 /** About `count` round tick values covering [0, max]. */
 export function niceTicks(max: number, count = 3): number[] {
   if (max <= 0) return [0]

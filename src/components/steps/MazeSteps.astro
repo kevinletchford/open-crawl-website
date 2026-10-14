@@ -1,0 +1,159 @@
+---
+/**
+ * The steps as checkpoints on the crawl's one route through a maze: in at
+ * the left wall, through your hooks in the middle, out at the right. The
+ * route draws itself leg by leg when the maze scrolls into view, and each
+ * step's text sits under its checkpoint.
+ *
+ * The maze is perfect, so the route is the only one; it's worked out at
+ * build time.
+ */
+import { STEPS } from '@/data/steps'
+import { generateGridMaze, gridFlood, gridWallsPath } from '@/lib/maze/grid'
+import { mulberry32 } from '@/lib/maze/rng'
+
+interface Props {
+  seed?: number
+  class?: string
+}
+const { seed = 11, class: className } = Astro.props
+
+const cols = 36
+const rows = 9
+const size = 10
+const maze = generateGridMaze(cols, rows, mulberry32(seed))
+const walls = gridWallsPath(maze, size)
+const W = cols * size
+const H = rows * size
+
+const centre = (id: number) =>
+  [((id % cols) + 0.5) * size, (Math.floor(id / cols) + 0.5) * size] as const
+
+// Walk back from the exit to the entrance along the flood's parents.
+const mid = Math.floor(rows / 2)
+const start = mid * cols
+const end = (mid + 1) * cols - 1
+const { parent } = gridFlood(maze, [start])
+const cells = [end]
+while (cells[cells.length - 1] !== start)
+  cells.push(parent[cells[cells.length - 1]])
+cells.reverse()
+
+// Checkpoints: the entrance, the cell in the middle column nearest the
+// route's halfway point, and the exit. The route splits into legs at them.
+const half = cells.reduce(
+  (best, id, i) =>
+    Math.abs((id % cols) - cols / 2) < Math.abs((cells[best] % cols) - cols / 2)
+      ? i
+      : best,
+  0,
+)
+const stops = [0, half, cells.length - 1]
+const leg = (from: number, to: number) =>
+  cells
+    .slice(from, to + 1)
+    .map((c, i) => `${i ? 'L' : 'M'}${centre(c).join(' ')}`)
+    .join('')
+const legs = [
+  `M-6 ${centre(start)[1]}L${centre(start).join(' ')}`,
+  leg(stops[0], stops[1]),
+  leg(stops[1], stops[2]),
+  `M${centre(end).join(' ')}L${W + 6} ${centre(end)[1]}`,
+]
+const marks = stops.map((s) => centre(cells[s]))
+---
+
+<div class:list={[className]} data-reveal>
+  <svg
+    viewBox={`-8 -8 ${W + 16} ${H + 16}`}
+    class="w-full text-ink"
+    aria-hidden="true"
+  >
+    <path
+      d={walls}
+      fill="none"
+      stroke="currentColor"
+      stroke-opacity="0.25"
+      stroke-width="1.2"
+      stroke-linecap="square"></path>
+    {
+      // Doors: cut the outer wall at the entrance and exit.
+      [0, W].map((x) => (
+        <rect
+          x={x - 2}
+          y={mid * size + 1}
+          width="4"
+          height={size - 2}
+          class="fill-surface"
+        />
+      ))
+    }
+    {
+      legs.map((d, i) => (
+        <path
+          d={d}
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          pathLength="1"
+          class="draw"
+          style={`--delay: ${i * 700}ms`}
+        />
+      ))
+    }
+    {
+      marks.map(([x, y], i) => (
+        <g class="fade" style={`--delay: ${i * 700 + 300}ms`}>
+          <circle
+            cx={x}
+            cy={y}
+            r="6.5"
+            class="fill-surface"
+            stroke="currentColor"
+          />
+          <text
+            x={x}
+            y={y}
+            text-anchor="middle"
+            dominant-baseline="central"
+            font-size="7"
+            class="fill-current font-mono"
+          >
+            {i + 1}
+          </text>
+        </g>
+      ))
+    }
+  </svg>
+
+  <ol class="mt-10 grid gap-8 md:grid-cols-3 md:gap-6">
+    {
+      STEPS.map((step, i) => (
+        <li
+          class:list={[
+            'grid grid-cols-[2rem_1fr] gap-x-3 md:grid-cols-1',
+            i === 1 && 'md:text-center',
+            i === 2 && 'md:text-right',
+          ]}
+        >
+          <span class="font-mono text-sm leading-7 text-ink-muted md:hidden">
+            {i + 1}
+          </span>
+          <div>
+            <h3 class="text-lg font-semibold">{step.title}</h3>
+            <p class="mt-1 text-ink-muted">{step.body}</p>
+          </div>
+        </li>
+      ))
+    }
+  </ol>
+</div>
+
+<script>
+  import { scan } from '@/scripts/data/reveal'
+
+  // Not in a Figure, so watch for the reveal here.
+  queueMicrotask(scan)
+</script>

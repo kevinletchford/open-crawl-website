@@ -1,0 +1,194 @@
+---
+/**
+ * The reporting card's graphic: every page of the crawl as a square. The
+ * squares fill in as a wave, an agent asks which pricing pages GPTBot
+ * can't read, the report narrows to pricing, the three blocked pages light
+ * up and the agent answers. Played by `scripts/feature-steps.ts`.
+ */
+interface Props {
+  class?: string
+}
+const { class: className } = Astro.props
+
+const PAGES = 412
+const COLUMNS = 34
+const BLOCKED = new Set([215, 216, 240])
+// Pricing pages sit together.
+const PRICING = { from: 204, to: 256 }
+
+const STEP = { fill: 1, ask: 2, query: 3, found: 4, answer: 5 }
+---
+
+<div
+  class:list={['absolute inset-0', className]}
+  aria-hidden="true"
+  data-steps
+  data-interval="950"
+  data-hold="1500"
+>
+  {/* The report */}
+  <div
+    class="absolute top-0 right-8 left-6 overflow-hidden panel-sunk rounded-lg pb-3 [mask-image:none]"
+  >
+    <div
+      class="flex items-center justify-between gap-2 border-b border-line px-3 py-2 font-mono text-[11px] text-ink-muted"
+    >
+      <span>Agent access · GPTBot</span>
+      <span
+        class="report-chip rounded border border-line px-1.5"
+        data-at={STEP.query}
+      >
+        /pricing/*
+      </span>
+    </div>
+    <div class="report-filter" data-at={STEP.query}>
+      <div
+        class="report-grid grid gap-[2px] p-3"
+        style={`grid-template-columns: repeat(${COLUMNS}, minmax(0, 1fr))`}
+        data-at={STEP.fill}
+      >
+        {
+          Array.from({ length: PAGES }, (_, i) => {
+            const pricing = i >= PRICING.from && i < PRICING.to
+            return (
+              <span
+                class:list={[
+                  'report-page aspect-square rounded-[1px]',
+                  pricing ? 'bg-ink/55' : 'report-other bg-ink/20',
+                  BLOCKED.has(i) && 'report-blocked',
+                ]}
+                style={`--d: ${(i % COLUMNS) + Math.floor(i / COLUMNS)}`}
+                data-at={BLOCKED.has(i) ? STEP.found : undefined}
+              />
+            )
+          })
+        }
+      </div>
+    </div>
+    <div class="flex gap-4 px-3 font-mono text-[10px] text-ink-muted">
+      <span class="flex items-center gap-1.5">
+        <span class="size-2 rounded-[1px] bg-ink/20"></span>readable 409
+      </span>
+      <span class="flex items-center gap-1.5">
+        <span class="size-2 rounded-[1px] border border-ink"></span>blocked 3
+      </span>
+    </div>
+  </div>
+
+  {/* The agent asking */}
+  <div class="absolute right-4 bottom-4 left-12 space-y-2 text-sm">
+    <p
+      class="report-bubble ml-auto w-fit max-w-[90%] origin-bottom-right panel-raised rounded-lg px-3.5 py-2.5"
+      data-at={STEP.ask}
+    >
+      Which pricing pages can’t GPTBot read?
+    </p>
+    <div
+      class="report-bubble w-fit max-w-[95%] origin-bottom-left panel-raised rounded-lg px-3.5 py-2.5 transition-transform duration-500 ease-66 group-hover:-translate-y-1"
+      data-at={STEP.query}
+    >
+      <p class="font-mono text-[10px] text-ink-muted">
+        → query_pages(agent: "GPTBot")
+      </p>
+      <p
+        class="report-typing mt-1.5"
+        data-at={STEP.query}
+        data-until={STEP.answer - 1}
+      >
+        <span></span><span></span><span></span>
+      </p>
+      <p class="report-answer mt-1.5" data-at={STEP.answer}>
+        3 of 412, all under /enterprise. Blocked in robots.txt.
+      </p>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* Finished, as drawn without script; [data-playing] holds back the rest */
+  .report-page {
+    transition:
+      opacity 0.5s var(--ease-66),
+      transform 0.5s var(--ease-66),
+      background-color 0.45s var(--ease-66),
+      box-shadow 0.45s var(--ease-66);
+  }
+  .report-grid[data-on] .report-page {
+    transition-delay: calc(var(--d) * 14ms);
+  }
+  /* Narrowed to pricing */
+  .report-other {
+    opacity: 0.35;
+  }
+  [data-playing] .report-filter:not([data-on]) .report-other {
+    opacity: 1;
+  }
+  /* Not crawled yet */
+  [data-playing] .report-grid:not([data-on]) .report-page {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+
+  .report-blocked {
+    background-color: transparent;
+    box-shadow: inset 0 0 0 1px var(--color-ink);
+  }
+  [data-playing] .report-blocked[data-on] {
+    animation: report-blink 1.2s ease-in-out infinite;
+  }
+  [data-playing] .report-blocked:not([data-on]) {
+    background-color: color-mix(in oklch, var(--color-ink) 55%, transparent);
+    box-shadow: none;
+  }
+  @keyframes report-blink {
+    50% {
+      background-color: var(--color-ink);
+    }
+  }
+
+  .report-chip,
+  .report-bubble {
+    transition:
+      opacity 0.5s var(--ease-66),
+      transform 0.5s var(--ease-66);
+  }
+  [data-playing] .report-chip:not([data-on]) {
+    opacity: 0;
+  }
+  [data-playing] .report-bubble:not([data-on]) {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+
+  .report-typing {
+    display: none;
+    gap: 4px;
+    height: 1.25rem;
+    align-items: center;
+  }
+  [data-playing] .report-typing[data-on] {
+    display: flex;
+  }
+  .report-typing span {
+    width: 5px;
+    height: 5px;
+    border-radius: 9999px;
+    background: var(--color-ink-muted);
+    animation: report-dot 1s ease-in-out infinite;
+  }
+  .report-typing span:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+  .report-typing span:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+  @keyframes report-dot {
+    50% {
+      opacity: 0.3;
+      transform: translateY(-2px);
+    }
+  }
+  [data-playing] .report-answer:not([data-on]) {
+    display: none;
+  }
+</style>

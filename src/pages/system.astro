@@ -4,7 +4,12 @@
  * for the design system. Not linked from the nav, and kept out of search.
  */
 import Icon from '@/components/Icon.astro'
+import InviteForm from '@/components/InviteForm.astro'
 import Section from '@/components/Section.astro'
+import CrawlGridBackdrop from '@/components/backdrops/CrawlGridBackdrop.astro'
+import LinkGraphBackdrop from '@/components/backdrops/LinkGraphBackdrop.astro'
+import SourceBackdrop from '@/components/backdrops/SourceBackdrop.astro'
+import WaterfallBackdrop from '@/components/backdrops/WaterfallBackdrop.astro'
 import AgentAccessMatrix from '@/components/data/AgentAccessMatrix.astro'
 import AgentCoverageBars from '@/components/data/AgentCoverageBars.astro'
 import CrawlFunnel from '@/components/data/CrawlFunnel.astro'
@@ -31,6 +36,29 @@ import { ICON_NAMES, ICONS } from '@/lib/icons'
 import BaseLayout from '@/layouts/BaseLayout.astro'
 
 const sizes = [16, 20, 24] as const
+
+const backdrops = [
+  {
+    name: 'Crawl grid',
+    note: 'A dot grid with crawl paths hopping link to link, a pulse running along each.',
+    Backdrop: CrawlGridBackdrop,
+  },
+  {
+    name: 'Link graph',
+    note: 'The site fanned out from the home page; rings are crawl depth, solid nodes are read.',
+    Backdrop: LinkGraphBackdrop,
+  },
+  {
+    name: 'Source',
+    note: 'Faint page source and robots rules, with the lines an agent reads picked out.',
+    Backdrop: SourceBackdrop,
+  },
+  {
+    name: 'Waterfall',
+    note: 'A network waterfall of the crawl’s requests; hatched bars were blocked.',
+    Backdrop: WaterfallBackdrop,
+  },
+]
 ---
 
 <BaseLayout
@@ -164,4 +192,35 @@ const sizes = [16, 20, 24] as const
     </p>
     <SiteMaze class="mt-10" />
   </Section>
+
+  <Section innerClass="py-16">
+    <h2 class="text-3xl font-semibold tracking-tight">Request an invite</h2>
+    <p class="mt-4 max-w-2xl text-ink-muted">
+      The invite form, on the card it sits on in the invite band.
+    </p>
+    <div
+      class="mt-10 max-w-2xl rounded-card border border-white/20 bg-night-alt p-6 sm:p-8"
+    >
+      <InviteForm id="invite-form-system" />
+    </div>
+  </Section>
+
+  {
+    backdrops.map(({ name, note, Backdrop }, i) => (
+      <Section tone="dark" innerClass="py-28 sm:py-36">
+        <Backdrop slot="backdrop" />
+        <div class="grid gap-12 lg:grid-cols-[1fr_1.1fr] lg:gap-20">
+          <div>
+            <h2 class="text-3xl font-semibold tracking-tight">
+              {name} backdrop
+            </h2>
+            <p class="mt-4 max-w-md text-ink-muted">{note}</p>
+          </div>
+          <div class="rounded-card border border-white/20 bg-night-alt p-6 sm:p-8">
+            <InviteForm id={`invite-form-backdrop-${i}`} />
+          </div>
+        </div>
+      </Section>
+    ))
+  }
 </BaseLayout>

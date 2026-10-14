@@ -1,0 +1,269 @@
+---
+/**
+ * The "edges left open" section: a heading and six features from
+ * `src/data/engine.ts`, in one of six treatments:
+ *
+ * - `cards`: the features as cells of one bordered grid, each with its
+ *   bespoke glyph (`EngineGlyph.astro`).
+ * - `list`: the heading on the left, the features as ruled rows on the right.
+ * - `pipeline`: the features hung off the step of a crawl they belong to,
+ *   along one rail from start to store.
+ * - `ports`: the engine as a box with gaps in its walls, each feature
+ *   plugged into one: the edges, left open.
+ * - `bento`: uneven cells, each with a line or two showing the feature.
+ * - `ledger`: one table of feature, what it does, and what it looks like.
+ *
+ * Content only; wrap it in a dark `Section` for the band.
+ */
+import EngineGlyph from './EngineGlyph.astro'
+import Icon from './Icon.astro'
+import MazeSvg from './MazeSvg.astro'
+import { ENGINE_FEATURES, ENGINE_HEADING } from '@/data/engine'
+
+interface Props {
+  variant?: 'cards' | 'list' | 'pipeline' | 'ports' | 'bento' | 'ledger'
+  heading?: string
+  class?: string
+}
+
+const {
+  variant = 'cards',
+  heading = ENGINE_HEADING,
+  class: className,
+} = Astro.props
+
+const STAGES = ['Start', 'Fetch', 'Render', 'Hook', 'Output', 'Store']
+const pipeline = [...ENGINE_FEATURES].sort(
+  (a, b) => STAGES.indexOf(a.stage) - STAGES.indexOf(b.stage),
+)
+// The ports layout: three features on each side of the engine.
+const sides = [ENGINE_FEATURES.slice(0, 3), ENGINE_FEATURES.slice(3)]
+// The bento layout: which cells run two columns wide.
+const WIDE = new Set([0, 3, 4])
+---
+
+{
+  variant === 'list' ? (
+    <div
+      class:list={['grid gap-12 lg:grid-cols-[2fr_3fr] lg:gap-20', className]}
+    >
+      <h2 class="text-4xl font-semibold tracking-tight text-balance lg:sticky lg:top-28 lg:self-start">
+        {heading}
+      </h2>
+      <ul class="divide-y divide-line border-y border-line">
+        {ENGINE_FEATURES.map((feature) => (
+          <li class="grid gap-x-8 gap-y-2 py-7 sm:grid-cols-[14rem_1fr]">
+            <h3 class="flex items-center gap-3 font-semibold">
+              <Icon
+                name={feature.icon}
+                size={20}
+                class="shrink-0 text-ink/80"
+              />
+              {feature.title}
+            </h3>
+            <p class="text-ink-muted">{feature.body}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  ) : (
+    <div class={className}>
+      <h2
+        class:list={[
+          'max-w-2xl text-4xl font-semibold tracking-tight text-balance',
+          variant === 'ports' && 'mx-auto text-center',
+        ]}
+      >
+        {heading}
+      </h2>
+
+      {variant === 'cards' && (
+        // The rules are the line colour laid over solid surface, so the gaps
+        // and the (transparent) border are opaque: the backdrop can't show
+        // through and break them up.
+        <div class="mt-14 grid gap-px overflow-hidden rounded-card border border-transparent [background:linear-gradient(var(--color-line),var(--color-line))_var(--color-surface)] sm:grid-cols-2 lg:grid-cols-3">
+          {ENGINE_FEATURES.map((feature) => (
+            <div class="bg-surface p-8">
+              <EngineGlyph name={feature.glyph} size={56} class="text-ink/85" />
+              <h3 class="mt-6 font-semibold">{feature.title}</h3>
+              <p class="mt-2 text-sm leading-relaxed text-ink-muted">
+                {feature.body}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {variant === 'pipeline' && (
+        <ol class="mt-14 grid gap-y-10 md:grid-cols-3 md:gap-x-8 lg:grid-cols-6 lg:gap-x-6">
+          {pipeline.map((feature, i) => (
+            <li class="relative border-l border-line pl-6 md:border-t md:border-l-0 md:pt-8 md:pl-0">
+              {/* The stop on the rail. */}
+              <span class="absolute top-0 -left-[5px] size-[9px] rounded-full border border-ink bg-surface md:-top-[5px] md:left-0" />
+              <p class="-mt-1.5 font-mono text-xs text-ink-muted md:mt-0">
+                {String(i + 1).padStart(2, '0')} · {feature.stage}
+              </p>
+              <Icon name={feature.icon} size={24} class="mt-5 text-ink/80" />
+              <h3 class="mt-4 font-semibold">{feature.title}</h3>
+              <p class="mt-2 text-sm leading-relaxed text-ink-muted">
+                {feature.body}
+              </p>
+            </li>
+          ))}
+        </ol>
+      )}
+
+      {variant === 'ports' && (
+        <div class="mt-16 grid gap-10 lg:grid-cols-[1fr_15rem_1fr] lg:grid-rows-3 lg:gap-x-0 lg:gap-y-6">
+          {sides.map((side, s) =>
+            side.map((feature, i) => (
+              <div
+                class:list={[
+                  'port relative flex items-center',
+                  s === 0
+                    ? 'lg:col-start-1 lg:pr-10'
+                    : 'lg:col-start-3 lg:pl-10',
+                  ['lg:row-start-1', 'lg:row-start-2', 'lg:row-start-3'][i],
+                ]}
+                data-side={s === 0 ? 'left' : 'right'}
+              >
+                <div
+                  class:list={[
+                    'relative z-10 flex gap-4 rounded-card border border-line bg-surface p-5',
+                    s === 0 && 'lg:flex-row-reverse lg:text-right',
+                  ]}
+                >
+                  <Icon
+                    name={feature.icon}
+                    size={20}
+                    class="mt-0.5 shrink-0 text-ink/80"
+                  />
+                  <div>
+                    <h3 class="font-semibold">{feature.title}</h3>
+                    <p class="mt-1.5 text-sm leading-relaxed text-ink-muted">
+                      {feature.body}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )),
+          )}
+          {/* The engine: walls broken where each feature plugs in. */}
+          <div class="relative hidden lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:block">
+            <svg
+              class="absolute inset-0 size-full text-ink"
+              viewBox="0 0 100 300"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
+              <g
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1"
+                vector-effect="non-scaling-stroke"
+              >
+                <path
+                  d="M0 0H100M0 300H100"
+                  vector-effect="non-scaling-stroke"
+                />
+                {[0, 100].map((x) => (
+                  <path
+                    d={`M${x} 0V38M${x} 62V138M${x} 162V238M${x} 262V300`}
+                    vector-effect="non-scaling-stroke"
+                  />
+                ))}
+              </g>
+            </svg>
+            <div class="absolute inset-0 grid place-items-center content-center gap-4 text-center">
+              <MazeSvg
+                seed={7}
+                rings={4}
+                cellLength={2.2}
+                class="size-24 text-ink/70"
+              />
+              <p class="font-mono text-xs text-ink-muted">crawl engine</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {variant === 'bento' && (
+        <div class="mt-14 grid gap-4 md:grid-cols-3">
+          {ENGINE_FEATURES.map((feature, i) => (
+            <div
+              class:list={[
+                'flex flex-col rounded-card border border-line bg-surface p-7',
+                WIDE.has(i) && 'md:col-span-2',
+              ]}
+            >
+              <div class="flex items-center gap-3">
+                <Icon name={feature.icon} size={20} class="text-ink/80" />
+                <h3 class="font-semibold">{feature.title}</h3>
+              </div>
+              <p class="mt-3 max-w-md text-sm leading-relaxed text-ink-muted">
+                {feature.body}
+              </p>
+              <div class="mt-auto pt-6">
+                <pre
+                  class="overflow-x-auto rounded-lg border border-line bg-surface-alt px-4 py-3 font-mono text-xs leading-relaxed text-ink/80"
+                  set:text={feature.proof.join('\n')}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {variant === 'ledger' && (
+        <div class="mt-14 overflow-hidden rounded-card border border-line bg-surface">
+          <div class="hidden grid-cols-[16rem_1fr_1fr] gap-8 border-b border-line px-8 py-3 text-xs text-ink-muted lg:grid">
+            <span>Feature</span>
+            <span>What it does</span>
+            <span>What it looks like</span>
+          </div>
+          <ul class="divide-y divide-line">
+            {ENGINE_FEATURES.map((feature) => (
+              <li class="grid gap-x-8 gap-y-3 px-6 py-6 sm:px-8 lg:grid-cols-[16rem_1fr_1fr]">
+                <h3 class="flex items-center gap-3 font-semibold">
+                  <Icon
+                    name={feature.icon}
+                    size={20}
+                    class="shrink-0 text-ink/80"
+                  />
+                  {feature.title}
+                </h3>
+                <p class="text-sm leading-relaxed text-ink-muted">
+                  {feature.body}
+                </p>
+                <pre
+                  class="overflow-x-auto font-mono text-xs leading-relaxed text-ink/80"
+                  set:text={feature.proof.join('\n')}
+                />
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
+<style>
+  /* The ports layout's connector: from each feature to its gap in the wall. */
+  @media (width >= 64rem) {
+    .port::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      width: 2.5rem;
+      border-top: 1px dashed var(--color-line);
+      border-color: color-mix(in oklab, var(--color-ink) 45%, transparent);
+    }
+    .port[data-side='left']::after {
+      right: 0;
+    }
+    .port[data-side='right']::after {
+      left: 0;
+    }
+  }
+</style>

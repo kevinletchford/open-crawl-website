@@ -22,8 +22,55 @@ const roles = [
   { value: 'other', label: 'Something else' },
 ]
 
-const field =
-  'mt-1.5 block w-full rounded-xl border border-line bg-transparent px-3.5 py-2.5 text-sm placeholder:text-ink-muted/70 focus:border-ink focus:outline-none'
+const fields = [
+  {
+    name: 'email',
+    label: 'Work email',
+    type: 'email',
+    required: true,
+    wide: true,
+    maxlength: 254,
+    autocomplete: 'email',
+    inputmode: undefined,
+  },
+  {
+    name: 'name',
+    label: 'Name',
+    type: 'text',
+    required: false,
+    wide: false,
+    maxlength: 120,
+    autocomplete: 'name',
+    inputmode: undefined,
+  },
+  {
+    name: 'company',
+    label: 'Company',
+    type: 'text',
+    required: false,
+    wide: false,
+    maxlength: 120,
+    autocomplete: 'organization',
+    inputmode: undefined,
+  },
+  {
+    name: 'website',
+    label: 'Website',
+    type: 'text',
+    required: false,
+    wide: true,
+    maxlength: 2048,
+    autocomplete: 'url',
+    inputmode: 'url',
+  },
+] as const
+
+// Floating labels: the placeholder is the label's text, hidden, so
+// `:placeholder-shown` tells the label whether to sit inside or shrink above.
+const input =
+  'peer block w-full rounded-xl border border-white/[0.06] bg-white/[0.06] px-5 pt-7 pb-3 text-base text-ink transition-colors placeholder:text-transparent hover:bg-white/[0.09] focus:border-white/40 focus:bg-white/[0.09] focus:outline-none'
+const label =
+  'pointer-events-none absolute top-[1.15rem] left-5 text-base text-white/55 transition-all peer-focus:top-2.5 peer-focus:text-xs peer-[:not(:placeholder-shown)]:top-2.5 peer-[:not(:placeholder-shown)]:text-xs'
 ---
 
 <div data-invite class="relative">
@@ -31,60 +78,50 @@ const field =
     id={id}
     method="post"
     action="/api/invite"
-    class="grid gap-4 sm:grid-cols-2"
+    class="grid gap-x-4 gap-y-5 sm:grid-cols-2"
     novalidate
   >
-    <label class="text-sm font-medium sm:col-span-2">
-      Work email <span class="text-ink-muted">(required)</span>
-      <input
-        class={field}
-        type="email"
-        name="email"
-        required
-        maxlength="254"
-        autocomplete="email"
-        placeholder="you@company.com"
-      />
-    </label>
-    <label class="text-sm font-medium">
-      Name
-      <input
-        class={field}
-        type="text"
-        name="name"
-        maxlength="120"
-        autocomplete="name"
-      />
-    </label>
-    <label class="text-sm font-medium">
-      Company
-      <input
-        class={field}
-        type="text"
-        name="company"
-        maxlength="120"
-        autocomplete="organization"
-      />
-    </label>
-    <label class="text-sm font-medium">
-      Website
-      <input
-        class={field}
-        type="text"
-        name="website"
-        maxlength="2048"
-        inputmode="url"
-        autocomplete="url"
-        placeholder="company.com"
-      />
-    </label>
-    <label class="text-sm font-medium">
-      Role
-      <select class:list={[field, 'appearance-none']} name="role">
-        <option value="">Choose one</option>
-        {roles.map((role) => <option value={role.value}>{role.label}</option>)}
-      </select>
-    </label>
+    {
+      fields.map((f) => (
+        <div class:list={['relative', f.wide && 'sm:col-span-2']}>
+          <input
+            id={`${id}-${f.name}`}
+            class={input}
+            type={f.type}
+            name={f.name}
+            required={f.required}
+            maxlength={f.maxlength}
+            autocomplete={f.autocomplete}
+            inputmode={f.inputmode}
+            placeholder={f.label}
+          />
+          <label for={`${id}-${f.name}`} class={label}>
+            {f.label}
+            {f.required && <span class="text-white/40"> · required</span>}
+          </label>
+        </div>
+      ))
+    }
+    <fieldset class="mt-4 sm:col-span-2">
+      <legend class="mb-4 text-sm text-white/55">Your role</legend>
+      <div class="flex flex-wrap gap-2.5">
+        {
+          roles.map((role) => (
+            <label class="cursor-pointer">
+              <input
+                type="radio"
+                name="role"
+                value={role.value}
+                class="peer sr-only"
+              />
+              <span class="block rounded-full border border-white/20 px-4 py-2 text-sm text-white/75 transition-colors peer-checked:border-white peer-checked:bg-white peer-checked:text-black peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-white hover:border-white/50">
+                {role.label}
+              </span>
+            </label>
+          ))
+        }
+      </div>
+    </fieldset>
 
     <!-- Honeypot: hidden from people; bots that fill it are ignored. -->
     <div class="absolute -left-[9999px]" aria-hidden="true">
@@ -99,23 +136,25 @@ const field =
       </label>
     </div>
 
-    <div class="flex flex-wrap items-center gap-4 sm:col-span-2">
-      <button type="submit" class="btn btn-primary">Request an invite</button>
-      <p class="text-xs text-ink-muted">
+    <div class="mt-6 grid gap-4 sm:col-span-2">
+      <button type="submit" class="btn btn-primary w-full py-3.5 text-base">
+        Request an invite
+      </button>
+      <p class="text-center text-xs text-white/50">
         We’ll only use your email to send your invite.
       </p>
     </div>
     <p
       data-invite-error
       role="alert"
-      class="hidden text-sm font-medium sm:col-span-2"
+      class="hidden text-center text-sm font-medium sm:col-span-2"
     >
     </p>
   </form>
 
   <div data-invite-done hidden tabindex="-1" class="focus:outline-none">
     <p class="text-2xl font-semibold tracking-tight">You’re on the list.</p>
-    <p class="mt-2 text-ink-muted">
+    <p class="mt-2 text-white/75">
       We’re letting people in a few at a time. Watch your inbox for an invite.
     </p>
   </div>
@@ -130,7 +169,9 @@ const field =
   const FALLBACK = 'Something went wrong. Please try again in a moment.'
 
   /** Show an error from a no-JS round trip (`/invite?error=…`), if any. */
-  const initialError = new URLSearchParams(location.search).get('error')
+  const params = new URLSearchParams(location.search)
+  const initialError = params.get('error')
+  const prefill = params.get('email')
 
   for (const root of document.querySelectorAll<HTMLElement>('[data-invite]')) {
     const form = root.querySelector('form')!
@@ -143,6 +184,13 @@ const field =
       error.classList.remove('hidden')
     }
     if (initialError) showError(MESSAGES[initialError] ?? FALLBACK)
+
+    // Carried over from an email-only CTA (`/invite?email=…`).
+    const email = form.elements.namedItem('email') as HTMLInputElement
+    if (prefill && !email.value) {
+      email.value = prefill
+      form.querySelector<HTMLInputElement>('[name=name]')?.focus()
+    }
 
     form.addEventListener('submit', async (event) => {
       event.preventDefault()

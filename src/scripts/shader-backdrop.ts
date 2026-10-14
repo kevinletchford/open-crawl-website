@@ -1,7 +1,12 @@
 /**
  * Slow, drifting light for the dark bands, drawn by a tiny WebGL2
- * fragment shader (no three.js). The canvas is masked to a maze's corridors in
- * CSS, so the light appears to flow through the maze.
+ * fragment shader (no three.js). The shader masks the light to a maze's
+ * corridors, so it appears to flow through the maze.
+ *
+ * The mask is rasterized once into a texture rather than applied as a CSS
+ * `mask-image`: a CSS mask on a WebGL canvas is re-rasterized whenever the
+ * page around it repaints (a hover, a focus ring), and an SVG mask that size
+ * makes those repaints stutter and flicker.
  *
  * Each backdrop creates its GL context the first time it nears the viewport,
  * and only animates while visible. With reduced motion it draws one still
@@ -18,6 +23,7 @@ uniform vec2 uRes;
 uniform float uTime;
 uniform vec3 uA;
 uniform vec3 uB;
+uniform sampler2D uMask;
 out vec4 outColor;
 
 float blob(vec2 p, vec2 c, float r) {
@@ -25,14 +31,19 @@ float blob(vec2 p, vec2 c, float r) {
 }
 
 void main() {
+  vec2 uv = gl_FragCoord.xy / uRes;
   vec2 p = (gl_FragCoord.xy - 0.5 * uRes) / min(uRes.x, uRes.y);
   float t = uTime * 0.08;
   float a = blob(p, vec2(sin(t * 1.3) * 0.45, cos(t * 0.9) * 0.35), 0.42);
   float b = blob(p, vec2(cos(t * 0.7 + 2.0) * 0.5, sin(t * 1.1 + 1.0) * 0.4), 0.38);
   float c = blob(p, vec2(sin(t * 0.5 + 4.0) * 0.4, cos(t * 1.7 + 3.0) * 0.45), 0.3);
   vec3 color = uA * a + uB * b + mix(uA, uB, 0.5) * c * 0.8;
-  float alpha = clamp(a + b + c * 0.8, 0.0, 1.0);
-  outColor = vec4(color, alpha);
+  // Corridors only, fading out towards the maze's edge.
+  float edge = 1.0 - clamp((length(uv - 0.5) * 2.0 - 0.35) / 0.65, 0.0, 1.0);
+  float mask = texture(uMask, vec2(uv.x, 1.0 - uv.y)).a * edge;
+  float alpha = clamp(a + b + c * 0.8, 0.0, 1.0) * mask;
+  // The canvas is premultiplied, so colour is scaled by the same alpha.
+  outColor = vec4(color * mask, alpha);
 }`
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -43,8 +54,25 @@ function hexToRgb(hex: string): [number, number, number] {
   return [(value >> 16) / 255, ((value >> 8) & 255) / 255, (value & 255) / 255]
 }
 
-function start(canvas: HTMLCanvasElement) {
-  const gl = canvas.getContext('webgl2', { premultipliedAlpha: false })
+/** The corridor mask, rasterized once; its alpha marks the corridors. */
+function loadMask(src: string) {
+  return new Promise<HTMLCanvasElement>((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => {
+      const raster = document.createElement('canvas')
+      raster.width = raster.height = 2048
+      raster.getContext('2d')!.drawImage(image, 0, 0, 2048, 2048)
+      resolve(raster)
+    }
+    image.onerror = reject
+    image.src = src
+  })
+}
+
+async function start(canvas: HTMLCanvasElement) {
+  const mask = await loadMask(canvas.dataset.mask!).catch(() => null)
+  if (!mask) return
+  const gl = canvas.getContext('webgl2', { antialias: false })
   if (!gl) return
   const compile = (type: number, source: string) => {
     const shader = gl.createShader(type)!
@@ -81,6 +109,16 @@ function start(canvas: HTMLCanvasElement) {
     gl.getUniformLocation(program, 'uB'),
     color('--backdrop-b', '#8a8a8a'),
   )
+  gl.bindTexture(gl.TEXTURE_2D, gl.createTexture())
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, mask)
+  gl.generateMipmap(gl.TEXTURE_2D)
+  gl.texParameteri(
+    gl.TEXTURE_2D,
+    gl.TEXTURE_MIN_FILTER,
+    gl.LINEAR_MIPMAP_LINEAR,
+  )
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
   const uRes = gl.getUniformLocation(program, 'uRes')
   const uTime = gl.getUniformLocation(program, 'uTime')
 
@@ -92,9 +130,11 @@ function start(canvas: HTMLCanvasElement) {
   }
 
   const resize = () => {
-    // The light is soft, so half resolution is plenty.
-    canvas.width = Math.max(1, Math.round(canvas.clientWidth / 2))
-    canvas.height = Math.max(1, Math.round(canvas.clientHeight / 2))
+    // The light is soft, but the corridors are not: render near device
+    // resolution so the narrow inner rings stay crisp.
+    const scale = Math.min(window.devicePixelRatio, 1.5)
+    canvas.width = Math.max(1, Math.round(canvas.clientWidth * scale))
+    canvas.height = Math.max(1, Math.round(canvas.clientHeight * scale))
     gl.viewport(0, 0, canvas.width, canvas.height)
     gl.uniform2f(uRes, canvas.width, canvas.height)
     draw(performance.now())
@@ -128,7 +168,7 @@ export function initShaderBackdrops() {
       for (const entry of entries) {
         if (!entry.isIntersecting) continue
         lazy.unobserve(entry.target)
-        start(entry.target as HTMLCanvasElement)
+        void start(entry.target as HTMLCanvasElement)
       }
     },
     { rootMargin: '200px' },

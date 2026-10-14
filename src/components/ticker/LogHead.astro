@@ -1,0 +1,18 @@
+---
+/** The request log's column headings. */
+import { GRID } from './grid'
+---
+
+<div
+  class:list={[
+    GRID,
+    'border-b border-line py-2 font-mono text-xs text-ink-muted',
+  ]}
+  aria-hidden="true"
+>
+  <span class="max-sm:hidden">Time</span>
+  <span>Status</span>
+  <span class="max-sm:hidden">Worker</span>
+  <span>Path</span>
+  <span class="text-right">Duration</span>
+</div>

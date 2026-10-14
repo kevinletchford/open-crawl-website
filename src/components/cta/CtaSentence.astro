@@ -1,0 +1,260 @@
+---
+/**
+ * CTA variant 5: the form is a sentence. The fields sit inline in the copy
+ * and grow with what's typed, so the band reads as one statement rather
+ * than a headline beside a form. Only the email is required.
+ *
+ * - `underline`: left-aligned, the blanks underlined.
+ * - `chips`: the same sentence, the blanks as soft filled pills.
+ * - `centered`: centred and set larger, with the role as an inline select.
+ * - `short`: just the email, with the button at the end of the line.
+ * - `unfold`: starts as the email clause; a valid email writes the rest of
+ *   the sentence in. Without JavaScript the whole sentence shows.
+ * - `command`: the sentence as a CLI call, for the engineers in the room.
+ */
+import CtaBand from '@/components/cta/CtaBand.astro'
+import SentenceBlank from '@/components/cta/SentenceBlank.astro'
+import { ROLES, inviteBlanks } from '@/data/invite'
+
+interface Props {
+  heading?: string
+  id?: string
+  variant?: 'underline' | 'chips' | 'centered' | 'short' | 'unfold' | 'command'
+}
+
+const {
+  heading = 'OpenCrawl is invite-only, for now.',
+  id = 'cta-sentence',
+  variant = 'underline',
+} = Astro.props
+
+const centered = variant === 'centered' || variant === 'short'
+const look =
+  variant === 'chips' ? 'chip' : variant === 'command' ? 'mono' : 'underline'
+
+const { email, name, company, website } = inviteBlanks(id, look)
+
+const prose =
+  'text-2xl leading-[2.2] text-ink-muted sm:text-3xl sm:leading-[2.1]'
+---
+
+<CtaBand focus={centered ? 'center' : 'left'}>
+  <div
+    data-sentence
+    class:list={[centered ? 'mx-auto max-w-3xl text-center' : 'max-w-4xl']}
+  >
+    <h2 class="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+      {heading}
+    </h2>
+
+    <form method="post" action="/api/invite" novalidate class="mt-10">
+      {
+        (variant === 'underline' || variant === 'chips') && (
+          <p class={prose}>
+            Hi, I’m
+            <SentenceBlank {...name} />
+            from
+            <SentenceBlank {...company} tight />. We’d like to crawl
+            <SentenceBlank {...website} />— send the invite to
+            <SentenceBlank {...email} tight />.
+          </p>
+        )
+      }
+
+      {
+        variant === 'centered' && (
+          <p class="text-2xl leading-[2.2] text-white/70 sm:text-4xl sm:leading-[2]">
+            I’m
+            <SentenceBlank {...name} tight />, I work in
+            <label class="sr-only" for={`${id}-role`}>
+              Your role
+            </label>
+            <select
+              id={`${id}-role`}
+              name="role"
+              class="mx-[0.3em] inline-block cursor-pointer appearance-none border-b-2 border-white/25 bg-transparent px-0.5 align-baseline leading-tight text-ink transition-colors [field-sizing:content] hover:border-white/50 [&:has(option[value='']:checked)]:text-white/30 focus:border-white focus:outline-none"
+            >
+              <option value="" selected class="bg-night-alt text-base">
+                marketing
+              </option>
+              {ROLES.map((role) => (
+                <option value={role.value} class="bg-night-alt text-base">
+                  {role.label.toLowerCase()}
+                </option>
+              ))}
+            </select>
+            at
+            <SentenceBlank {...company} tight />, and my invite goes to
+            <SentenceBlank {...email} tight />.
+          </p>
+        )
+      }
+
+      {
+        variant === 'short' && (
+          <p class={prose}>
+            Send my invite to
+            <SentenceBlank {...email} tight />
+            <button
+              type="submit"
+              class="btn btn-primary ml-3 size-12 p-0 align-middle"
+              aria-label="Request an invite"
+            >
+              <svg
+                viewBox="0 0 16 16"
+                class="size-5"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                aria-hidden="true"
+              >
+                <path d="M3 8h10M9 4l4 4-4 4" />
+              </svg>
+            </button>
+          </p>
+        )
+      }
+
+      {
+        variant === 'unfold' && (
+          <p class={prose}>
+            Send my invite to
+            <SentenceBlank {...email} tight />.
+            <span data-more class="cta-unfold ml-[0.3em]">
+              I’m
+              <SentenceBlank {...name} />
+              from
+              <SentenceBlank {...company} tight />, and we’d like to crawl
+              <SentenceBlank {...website} tight />.
+            </span>
+          </p>
+        )
+      }
+
+      {
+        variant === 'command' && (
+          <div class="overflow-x-auto rounded-xl border border-white/10 bg-night-alt/90 p-5 font-mono text-base leading-[2.1] text-white/50 shadow-[0_40px_120px_-40px_rgba(0,0,0,0.9)] sm:p-7 sm:text-lg">
+            <p class="whitespace-nowrap">
+              <span class="text-white/30 select-none">$ </span>
+              <span class="text-ink">opencrawl invite</span> \
+            </p>
+            <p class="whitespace-nowrap pl-[2ch]">
+              --email
+              <SentenceBlank {...email} /> \
+            </p>
+            <p class="whitespace-nowrap pl-[2ch]">
+              --name
+              <SentenceBlank {...name} placeholder={'"your name"'} /> \
+            </p>
+            <p class="whitespace-nowrap pl-[2ch]">
+              --site
+              <SentenceBlank {...website} tight />
+            </p>
+          </div>
+        )
+      }
+
+      <div class="absolute -left-[9999px]" aria-hidden="true">
+        <label>
+          Company URL
+          <input
+            type="text"
+            name="company_url"
+            tabindex="-1"
+            autocomplete="off"
+          />
+        </label>
+      </div>
+
+      {
+        variant === 'short' ? (
+          <p class="mt-6 text-sm text-white/50">That’s all we need for now.</p>
+        ) : (
+          <div
+            class:list={[
+              'mt-10 flex flex-wrap items-center gap-x-6 gap-y-3',
+              centered && 'justify-center',
+            ]}
+          >
+            <button type="submit" class="btn btn-primary px-6 py-3 text-base">
+              {variant === 'command' ? 'Run' : 'Request an invite'}
+              {variant === 'command' && (
+                <kbd class="font-mono text-xs opacity-50">↵</kbd>
+              )}
+            </button>
+            <p class="text-sm text-white/50">
+              {variant === 'unfold'
+                ? 'The rest is optional.'
+                : 'Only the email is required.'}
+            </p>
+          </div>
+        )
+      }
+      <p data-invite-error role="alert" hidden class="mt-4 text-sm font-medium">
+      </p>
+    </form>
+
+    <div data-invite-done hidden tabindex="-1" class="mt-10 focus:outline-none">
+      {
+        variant === 'command' ? (
+          <p class="font-mono text-lg text-ink">
+            ✓ queued. Watch your inbox for an invite.
+          </p>
+        ) : (
+          <>
+            <p class="text-2xl font-semibold tracking-tight">
+              You’re on the list.
+            </p>
+            <p class="mt-2 text-white/75">
+              We’re letting people in a few at a time. Watch your inbox for an
+              invite.
+            </p>
+          </>
+        )
+      }
+    </div>
+  </div>
+</CtaBand>
+
+<style>
+  .cta-unfold.is-folded {
+    display: none;
+  }
+  .cta-unfold:not(.is-folded) {
+    animation: cta-unfold-in 500ms ease-out;
+  }
+  @keyframes cta-unfold-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cta-unfold:not(.is-folded) {
+      animation: none;
+    }
+  }
+</style>
+
+<script>
+  import { wireInviteSubmit } from '@/scripts/invite-submit'
+
+  for (const root of document.querySelectorAll<HTMLElement>(
+    '[data-sentence]',
+  )) {
+    wireInviteSubmit(root)
+
+    // `unfold`: write the rest of the sentence in once the email looks done.
+    const more = root.querySelector<HTMLElement>('[data-more]')
+    if (!more) continue
+    const email = root.querySelector<HTMLInputElement>('[name=email]')!
+    more.classList.add('is-folded')
+    const check = () => {
+      const domain = email.value.split('@')[1] ?? ''
+      if (email.checkValidity() && /\.[a-z]{2,}$/i.test(domain)) {
+        more.classList.remove('is-folded')
+        email.removeEventListener('input', check)
+      }
+    }
+    email.addEventListener('input', check)
+  }
+</script>

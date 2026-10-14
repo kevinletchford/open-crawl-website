@@ -1,0 +1,190 @@
+---
+/**
+ * Each interface as a tab beside a terminal: pick one and its snippet types
+ * itself out. Until someone picks, it steps through them on its own, and
+ * stops for good on the first click. Static, showing the first, without
+ * script or with reduced motion.
+ */
+import Figure from '@/components/data/Figure.astro'
+import Icon from '@/components/Icon.astro'
+import { INPUTS, OUTPUTS, type Interface } from '@/data/interfaces'
+
+interface Props {
+  class?: string
+}
+const { class: className } = Astro.props
+
+const groups: [string, Interface[]][] = [
+  ['Drive it from', INPUTS],
+  ['Send results to', OUTPUTS],
+]
+const all = [...INPUTS, ...OUTPUTS]
+// The prompt at the start of a line, drawn muted.
+const prompt = (line: string) => /^(\$|→|sqlite>) /.exec(line)?.[0] ?? ''
+---
+
+<Figure class={className} bodyClass="" caption="Illustrative session">
+  <div class="grid sm:grid-cols-[13rem_1fr]" data-console>
+    <div
+      class="flex gap-1 overflow-x-auto border-b border-line p-3 sm:flex-col sm:gap-4 sm:border-r sm:border-b-0 sm:p-4"
+      role="tablist"
+      aria-label="Interfaces"
+      aria-orientation="vertical"
+    >
+      {
+        groups.map(([heading, items]) => (
+          <div class="flex shrink-0 gap-1 sm:flex-col">
+            <p class="px-3 pb-1 text-xs text-ink-muted max-sm:hidden">
+              {heading}
+            </p>
+            {items.map((item) => {
+              const i = all.indexOf(item)
+              return (
+                <button
+                  type="button"
+                  role="tab"
+                  id={`console-tab-${i}`}
+                  aria-selected={i === 0 ? 'true' : 'false'}
+                  tabindex={i === 0 ? 0 : -1}
+                  class="tab flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-left font-mono text-xs whitespace-nowrap text-ink-muted transition-colors hover:text-ink"
+                  data-tab={i}
+                >
+                  <Icon
+                    name={item.icon ?? 'structure'}
+                    size={16}
+                    class:list={['max-sm:hidden', !item.icon && 'invisible']}
+                  />
+                  {item.name}
+                </button>
+              )
+            })}
+          </div>
+        ))
+      }
+    </div>
+
+    <div class="min-w-0 p-6 font-mono text-xs leading-6 sm:p-8 sm:text-sm">
+      {
+        all.map((item, i) => (
+          <div
+            role="tabpanel"
+            aria-labelledby={`console-tab-${i}`}
+            hidden={i !== 0}
+            data-panel={i}
+          >
+            <p class="mb-5 font-sans text-sm text-ink-muted">{item.note}</p>
+            <div class="overflow-x-auto">
+              {item.snippet.map((line) => (
+                <code class="block whitespace-pre" data-line>
+                  <span class="text-ink-muted" set:text={prompt(line)} />
+                  <span
+                    class={line.startsWith('  ') ? 'text-ink-muted' : undefined}
+                    set:text={line.slice(prompt(line).length)}
+                  />
+                </code>
+              ))}
+            </div>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</Figure>
+
+<style>
+  .tab[aria-selected='true'] {
+    background-color: var(--color-surface-alt);
+    color: var(--color-ink);
+  }
+  :global(.console-caret)::after {
+    content: '';
+    display: inline-block;
+    width: 0.55em;
+    height: 1.1em;
+    margin-left: 1px;
+    vertical-align: -0.2em;
+    background-color: var(--color-ink);
+  }
+</style>
+
+<script>
+  import { fresh } from '@/scripts/data/fresh'
+  import { onReveal, still } from '@/scripts/data/reveal'
+
+  for (const root of fresh('[data-console]')) {
+    const tabs = [...root.querySelectorAll<HTMLButtonElement>('[data-tab]')]
+    const panels = [...root.querySelectorAll<HTMLElement>('[data-panel]')]
+    let current = 0
+    let auto = !still
+    let typing = 0
+    let timer: number | undefined
+
+    // Types the panel's lines out a few characters a frame.
+    const type = (panel: HTMLElement) => {
+      const run = ++typing
+      const spans = [...panel.querySelectorAll<HTMLElement>('[data-line] span')]
+      const texts = spans.map((s) => (s.dataset.text ??= s.textContent ?? ''))
+      spans.forEach((s) => (s.textContent = ''))
+      let span = 0
+      let char = 0
+      const step = () => {
+        if (run !== typing) return
+        spans.forEach((s) => s.classList.remove('console-caret'))
+        if (span >= spans.length) return
+        char = Math.min(char + 3, texts[span].length)
+        spans[span].textContent = texts[span].slice(0, char)
+        spans[span].classList.add('console-caret')
+        if (char >= texts[span].length) {
+          span++
+          char = 0
+        }
+        window.setTimeout(step, span % 2 === 0 && char === 0 ? 180 : 16)
+      }
+      step()
+    }
+
+    const show = (i: number, focus = false) => {
+      current = i
+      tabs.forEach((tab, j) => {
+        tab.setAttribute('aria-selected', String(j === i))
+        tab.tabIndex = j === i ? 0 : -1
+      })
+      panels.forEach((panel, j) => (panel.hidden = j !== i))
+      if (focus) tabs[i].focus()
+      if (!still) type(panels[i])
+    }
+
+    const stopAuto = () => {
+      auto = false
+      window.clearTimeout(timer)
+    }
+
+    tabs.forEach((tab, i) =>
+      tab.addEventListener('click', () => {
+        stopAuto()
+        show(i)
+      }),
+    )
+    root.addEventListener('keydown', (event) => {
+      const delta = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[
+        event.key
+      ]
+      if (!delta || !(event.target as HTMLElement).dataset.tab) return
+      event.preventDefault()
+      stopAuto()
+      show((current + delta + tabs.length) % tabs.length, true)
+    })
+
+    if (auto) {
+      const tick = () => {
+        if (!auto) return
+        show((current + 1) % tabs.length)
+        timer = window.setTimeout(tick, 4200)
+      }
+      onReveal(root.closest('figure')!, () => {
+        show(0)
+        timer = window.setTimeout(tick, 4200)
+      })
+    }
+  }
+</script>

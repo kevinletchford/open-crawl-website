@@ -1,0 +1,356 @@
+---
+/**
+ * The invite form as a terminal command. The fields are blanks in the
+ * command line, Enter runs it, and the Worker's answer prints underneath
+ * as output, so the form never swaps itself out. Only the email is required.
+ *
+ * - `flags`: `opencrawl invite` with a flag per field, one per line.
+ * - `oneline`: the email as the argument and the site as one flag, on a
+ *   single line with Run at its end.
+ * - `prompts`: an interactive CLI that asks one question at a time, the
+ *   stepper as a terminal. Without JavaScript every prompt shows.
+ * - `curl`: the real request to /api/invite, as you'd send it yourself.
+ * - `window`: the flags in a terminal window, beside the copy.
+ * - `typed`: the command types itself in when the band scrolls into view,
+ *   then waits for the email.
+ */
+import CtaBand from '@/components/cta/CtaBand.astro'
+import SentenceBlank from '@/components/cta/SentenceBlank.astro'
+import { inviteBlanks } from '@/data/invite'
+
+interface Props {
+  heading?: string
+  id?: string
+  variant?: 'flags' | 'oneline' | 'prompts' | 'curl' | 'window' | 'typed'
+}
+
+const {
+  heading = 'OpenCrawl is invite-only, for now.',
+  id = 'cta-command',
+  variant = 'flags',
+} = Astro.props
+
+const { email, name, company, website } = inviteBlanks(id, 'mono')
+const split = variant === 'window'
+const inline = variant === 'oneline' || variant === 'typed'
+
+const prompts = [
+  { q: 'Work email', field: email },
+  { q: 'Your name', field: { ...name, placeholder: 'optional' } },
+  { q: 'Company', field: { ...company, placeholder: 'optional' } },
+  { q: 'What will you crawl?', field: { ...website, placeholder: 'optional' } },
+]
+
+const dim = 'text-white/30 select-none'
+const line = 'whitespace-nowrap'
+---
+
+<CtaBand focus="left">
+  <div
+    data-command={variant}
+    class:list={[
+      split
+        ? 'grid items-center gap-12 lg:grid-cols-[1fr_1.25fr] lg:gap-16'
+        : 'max-w-4xl',
+    ]}
+  >
+    <div>
+      <h2
+        class="text-4xl font-semibold tracking-tight text-balance sm:text-5xl"
+      >
+        {heading}
+      </h2>
+      {
+        split && (
+          <p class="mt-5 max-w-md text-lg text-ink-muted">
+            We’re onboarding teams in small batches. Fill in the blanks and
+            press Enter.
+          </p>
+        )
+      }
+    </div>
+
+    <form
+      method="post"
+      action="/api/invite"
+      novalidate
+      class:list={[!split && 'mt-10']}
+    >
+      <div
+        class="overflow-hidden rounded-xl border border-white/10 bg-night-alt/90 font-mono text-[0.95rem] leading-[2.1] text-white/50 shadow-[0_40px_120px_-40px_rgba(0,0,0,0.9)] sm:text-lg"
+      >
+        {
+          split && (
+            <div class="relative flex items-center gap-2 border-b border-white/10 px-4 py-3">
+              <span class="size-3 rounded-full bg-white/15" />
+              <span class="size-3 rounded-full bg-white/15" />
+              <span class="size-3 rounded-full bg-white/15" />
+              <span class="absolute inset-x-0 text-center text-xs text-white/40">
+                ~ — opencrawl
+              </span>
+            </div>
+          )
+        }
+
+        <div class="overflow-x-auto p-5 sm:p-7">
+          {
+            (variant === 'flags' || variant === 'window') && (
+              <>
+                <p class={line}>
+                  <span class={dim}>$ </span>
+                  <span class="text-ink">opencrawl invite</span> \
+                </p>
+                <p class:list={[line, 'pl-[2ch]']}>
+                  --email
+                  <SentenceBlank {...email} /> \
+                </p>
+                <p class:list={[line, 'pl-[2ch]']}>
+                  --name
+                  <SentenceBlank {...name} placeholder={'"your name"'} /> \
+                </p>
+                <p class:list={[line, 'pl-[2ch]']}>
+                  --site
+                  <SentenceBlank {...website} tight />
+                </p>
+              </>
+            )
+          }
+
+          {
+            inline && (
+              <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+                <p class="min-w-0 flex-1">
+                  <span class={dim}>$ </span>
+                  <span data-type class="text-ink">
+                    opencrawl invite
+                  </span>
+                  <span data-after>
+                    <SentenceBlank {...email} reserve />
+                    <span class="whitespace-nowrap">--site</span>
+                    <SentenceBlank {...website} tight />
+                  </span>
+                </p>
+                <button
+                  type="submit"
+                  data-run
+                  class="btn btn-primary shrink-0 font-sans"
+                >
+                  Send <kbd class="font-mono text-xs opacity-50">↵</kbd>
+                </button>
+              </div>
+            )
+          }
+
+          {
+            variant === 'prompts' && (
+              <>
+                <p class={line}>
+                  <span class={dim}>$ </span>
+                  <span class="text-ink">opencrawl invite</span>
+                </p>
+                {prompts.map(({ q, field }) => (
+                  <p data-prompt class={line}>
+                    <span data-mark class="inline-block w-[2ch] text-ink">
+                      ?
+                    </span>
+                    <span class="text-ink">{q}</span>
+                    <span class={dim}> › </span>
+                    <SentenceBlank {...field} tight />
+                  </p>
+                ))}
+              </>
+            )
+          }
+
+          {
+            variant === 'curl' && (
+              <>
+                <p class={line}>
+                  <span class={dim}>$ </span>
+                  <span class="text-ink">curl</span>{' '}
+                  https://open-crawl.com/api/invite \
+                </p>
+                <p class:list={[line, 'pl-[2ch]']}>
+                  -d email=
+                  <SentenceBlank {...email} /> \
+                </p>
+                <p class:list={[line, 'pl-[2ch]']}>
+                  -d company=
+                  <SentenceBlank {...company} /> \
+                </p>
+                <p class:list={[line, 'pl-[2ch]']}>
+                  -d website=
+                  <SentenceBlank {...website} tight />
+                </p>
+              </>
+            )
+          }
+
+          <div data-out aria-live="polite"></div>
+        </div>
+      </div>
+
+      <div class="absolute -left-[9999px]" aria-hidden="true">
+        <label>
+          Company URL
+          <input
+            type="text"
+            name="company_url"
+            tabindex="-1"
+            autocomplete="off"
+          />
+        </label>
+      </div>
+
+      {
+        !inline && (
+          <div class="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
+            <button
+              type="submit"
+              data-run
+              class="btn btn-primary px-6 py-3 text-base"
+            >
+              Run
+              <kbd class="font-mono text-xs opacity-50">↵</kbd>
+            </button>
+            <p class="text-sm text-white/50">Only the email is required.</p>
+          </div>
+        )
+      }
+      {
+        inline && (
+          <p class="mt-5 text-sm text-white/50">Only the email is required.</p>
+        )
+      }
+    </form>
+  </div>
+</CtaBand>
+
+<style>
+  [data-type].is-typing::after {
+    content: '';
+    display: inline-block;
+    width: 0.6em;
+    height: 1.1em;
+    margin-left: 0.1em;
+    vertical-align: -0.15em;
+    background: currentColor;
+    animation: cta-caret 1s steps(1) infinite;
+  }
+  @keyframes cta-caret {
+    50% {
+      opacity: 0;
+    }
+  }
+</style>
+
+<script>
+  import { postInvite } from '@/scripts/invite-submit'
+
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches
+
+  for (const root of document.querySelectorAll<HTMLElement>('[data-command]')) {
+    const form = root.querySelector('form')!
+    const out = root.querySelector<HTMLElement>('[data-out]')!
+    const runs = root.querySelectorAll<HTMLButtonElement>('[data-run]')
+    const prompts = [...root.querySelectorAll<HTMLElement>('[data-prompt]')]
+    let step = 0
+    let busy = false
+
+    /** Prints a line of output under the command. */
+    const print = (text: string, tone: 'dim' | 'ink' = 'dim') => {
+      const p = document.createElement('p')
+      p.className = `whitespace-pre-wrap ${tone === 'ink' ? 'text-ink' : 'text-white/50'}`
+      p.textContent = text
+      out.append(p)
+      return p
+    }
+
+    // `prompts`: one question at a time, answered ones ticked off.
+    if (prompts.length) {
+      prompts.forEach((p, i) => (p.hidden = i > 0))
+      runs.forEach((b) => b.firstChild!.replaceWith('Continue '))
+    }
+    /** Ticks a prompt off and locks its answer. */
+    const answer = (prompt: HTMLElement) => {
+      const input = prompt.querySelector('input')!
+      prompt.querySelector('[data-mark]')!.textContent = '✔'
+      if (!input.value) input.placeholder = 'skipped'
+      input.readOnly = true
+    }
+    const nextPrompt = () => {
+      const input = prompts[step].querySelector('input')!
+      if (!input.checkValidity()) {
+        print(`✗ ${input.validationMessage || 'Please check this answer.'}`)
+        input.focus()
+        return
+      }
+      answer(prompts[step])
+      step += 1
+      prompts[step].hidden = false
+      prompts[step].querySelector('input')!.focus()
+      if (step === prompts.length - 1) {
+        runs.forEach((b) => b.firstChild!.replaceWith('Run '))
+      }
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault()
+      if (busy) return
+      if (prompts.length && step < prompts.length - 1) return nextPrompt()
+
+      const invalid = form.querySelector<HTMLInputElement>('input:invalid')
+      if (invalid) {
+        print(
+          `✗ ${invalid.labels?.[0]?.textContent?.replace(' (required)', '')}: ${invalid.validationMessage}`,
+        )
+        invalid.focus()
+        return
+      }
+
+      if (prompts.length) answer(prompts[step])
+      busy = true
+      runs.forEach((b) => (b.disabled = true))
+      const pending = print('→ requesting an invite…')
+      const message = await postInvite(form)
+      pending.remove()
+      busy = false
+      if (message === null) {
+        print('✓ queued. Watch your inbox for an invite.', 'ink')
+        form.querySelectorAll('input').forEach((i) => (i.readOnly = true))
+        runs.forEach((b) => (b.hidden = true))
+        return
+      }
+      print(`✗ ${message}`)
+      runs.forEach((b) => (b.disabled = false))
+    })
+
+    // `typed`: type the command in on first sight, then show the blanks.
+    if (root.dataset.command === 'typed' && !reduceMotion) {
+      const typed = root.querySelector<HTMLElement>('[data-type]')!
+      const after = root.querySelector<HTMLElement>('[data-after]')!
+      const text = typed.textContent!.trim()
+      typed.textContent = ''
+      typed.classList.add('is-typing')
+      after.hidden = true
+      new IntersectionObserver(
+        (entries, observer) => {
+          if (!entries[0].isIntersecting) return
+          observer.disconnect()
+          let i = 0
+          const tick = () => {
+            typed.textContent = text.slice(0, ++i)
+            if (i < text.length)
+              return setTimeout(tick, 55 + Math.random() * 60)
+            setTimeout(() => {
+              typed.classList.remove('is-typing')
+              after.hidden = false
+            }, 350)
+          }
+          setTimeout(tick, 400)
+        },
+        { threshold: 0.6 },
+      ).observe(typed)
+    }
+  }
+</script>

@@ -30,6 +30,19 @@ export interface MazeOptions {
    * in or out. High values give the long sweeping arcs of the reference.
    */
   bias?: number
+  /**
+   * Cells to carve as their own walled sub-maze, joined to the rest by a
+   * single doorway: a test on points as fractions of the maze's radius
+   * (y down), and a cell is in the region when at least half of it passes.
+   * `glyphRegion` turns a letter into one.
+   */
+  region?: (x: number, y: number) => boolean
+  /**
+   * Clear every wall outside the region, so only the region's maze stands
+   * inside the rim: the letter on an open floor. The rim's doorway leads
+   * straight into it, down a corridor of cells if the region stops short.
+   */
+  regionOnly?: boolean
 }
 
 export interface Cell {
@@ -41,6 +54,8 @@ export interface Cell {
   a1: number
   /** Ids of the cells this one is open to. */
   links: number[]
+  /** Whether the cell lies in the maze's `region`. */
+  inRegion: boolean
 }
 
 /** A wall along a circle of radius `r`, from angle `a0` to `a1`. */
@@ -91,6 +106,8 @@ export function generateMaze(options: MazeOptions): PolarMaze {
     cross = false,
     cellLength = 1.6,
     bias = 0.7,
+    region,
+    regionOnly = false,
   } = options
   const rng = mulberry32(seed)
   const radius = (i: number) => eye + i
@@ -123,10 +140,34 @@ export function generateMaze(options: MazeOptions): PolarMaze {
         a0: (index / count) * TAU,
         a1: ((index + 1) / count) * TAU,
         links: [],
+        inRegion: false,
       })
       row.push(id)
     }
     cellsByRing.push(row)
+  }
+
+  if (region) {
+    const outer = radius(rings) + wall / 2
+    // Sample each cell on a grid, so long outer cells are judged by their
+    // whole length rather than their middle.
+    const steps = 5
+    for (const cell of cells) {
+      let hits = 0
+      for (let i = 0; i < steps; i++) {
+        for (let j = 0; j < steps; j++) {
+          const r = radius(cell.ring) + (i + 0.5) / steps
+          const a = cell.a0 + ((j + 0.5) / steps) * (cell.a1 - cell.a0)
+          if (region((r * Math.sin(a)) / outer, (-r * Math.cos(a)) / outer)) {
+            hits++
+          }
+        }
+      }
+      // On an open floor, the outermost ring stays clear so the region
+      // never runs into the rim.
+      cell.inRegion =
+        hits * 2 >= steps * steps && !(regionOnly && cell.ring === rings - 1)
+    }
   }
 
   const quadrantOf = (cell: Cell) =>
@@ -139,6 +180,17 @@ export function generateMaze(options: MazeOptions): PolarMaze {
     return cells[cellsByRing[cell.ring - 1][Math.floor(cell.index / ratio)]]
   }
 
+  // Walk in from the rim's doorway until the region is reached, so the way
+  // into the maze is the way into the region.
+  if (region && regionOnly && !cross) {
+    let cell: Cell | undefined = cells[cellsByRing[rings - 1][0]]
+    while (cell && !cell.inRegion) {
+      cell.inRegion = true
+      cell = inward(cell)
+    }
+  }
+
+  /** Every cell `cell` could open onto, ignoring the region. */
   const neighbours = (cell: Cell): Cell[] => {
     const row = cellsByRing[cell.ring]
     const result: Cell[] = []
@@ -166,7 +218,8 @@ export function generateMaze(options: MazeOptions): PolarMaze {
     b.links.push(a.id)
   }
 
-  // Recursive backtracker, run once per quadrant (or once overall).
+  // Recursive backtracker, run once per quadrant (or once overall), and then
+  // from any cell left over: with a region, each run stays on its own side.
   const visited = new Uint8Array(cells.length)
   const starts = cross
     ? [0, 1, 2, 3].map((quadrant) => {
@@ -175,13 +228,16 @@ export function generateMaze(options: MazeOptions): PolarMaze {
         return cellsByRing[ring][quadrant * q + Math.floor(rng() * q)]
       })
     : [Math.floor(rng() * cells.length)]
-  for (const start of starts) {
+  const carve = (start: number) => {
+    if (visited[start]) return
     const stack = [cells[start]]
     visited[start] = 1
     while (stack.length) {
       const current = stack[stack.length - 1]
       const options = shuffle(
-        neighbours(current).filter((n) => !visited[n.id]),
+        neighbours(current).filter(
+          (n) => !visited[n.id] && n.inRegion === current.inRegion,
+        ),
         rng,
       )
       if (!options.length) {
@@ -193,6 +249,42 @@ export function generateMaze(options: MazeOptions): PolarMaze {
       link(current, next)
       visited[next.id] = 1
       stack.push(next)
+    }
+  }
+  for (const start of starts) carve(start)
+  for (const cell of cells) carve(cell.id)
+
+  // Join the separate runs with one doorway each, so the whole is still a
+  // perfect maze: the letter is entered once, and a counter (the hole in an
+  // R) once more from the letter.
+  if (region) {
+    const root = cells.map((cell) => cell.id)
+    const find = (id: number): number =>
+      root[id] === id ? id : (root[id] = find(root[id]))
+    for (const cell of cells) {
+      for (const other of cell.links) root[find(other)] = find(cell.id)
+    }
+    const doors = shuffle(
+      cells.flatMap((cell) =>
+        neighbours(cell)
+          .filter((n) => n.id > cell.id && n.inRegion !== cell.inRegion)
+          .map((n) => [cell, n] as const),
+      ),
+      rng,
+    )
+    for (const [a, b] of doors) {
+      if (find(a.id) === find(b.id)) continue
+      root[find(a.id)] = find(b.id)
+      link(a, b)
+    }
+  }
+
+  if (region && regionOnly) {
+    for (const cell of cells) {
+      if (cell.inRegion) continue
+      for (const n of neighbours(cell)) {
+        if (!n.inRegion && !cell.links.includes(n.id)) link(cell, n)
+      }
     }
   }
 

@@ -1,0 +1,299 @@
+---
+/**
+ * The models card's graphic: a site's tree with the model's scope drawn
+ * on it. The crawl walks the paths in scope one page at a time, drawing
+ * each branch as it goes, while the out-of-scope ones stay dashed and get
+ * crossed off. The model sits on top, lighting the rule in play and
+ * counting pages. Played by `scripts/feature-steps.ts`.
+ */
+interface Props {
+  class?: string
+}
+const { class: className } = Astro.props
+
+interface Node {
+  path: string
+  x: number
+  y: number
+  parent?: string
+  /** Step the crawl reaches it; out of scope when missing. */
+  at?: number
+}
+
+const NODES: Node[] = [
+  { path: '/', x: 156, y: 16, at: 1 },
+  { path: '/docs', x: 62, y: 54, parent: '/', at: 2 },
+  { path: '/pricing', x: 140, y: 54, parent: '/', at: 3 },
+  { path: '/blog', x: 210, y: 54, parent: '/' },
+  { path: '/careers', x: 270, y: 54, parent: '/' },
+  { path: '/api', x: 32, y: 92, parent: '/docs', at: 4 },
+  { path: '/guides', x: 90, y: 92, parent: '/docs', at: 5 },
+  { path: '/teams', x: 148, y: 92, parent: '/pricing', at: 6 },
+  { path: '/2026', x: 210, y: 92, parent: '/blog' },
+  { path: '/auth', x: 32, y: 130, parent: '/api', at: 7 },
+  { path: '/mcp', x: 90, y: 130, parent: '/guides', at: 8 },
+]
+const PAGES = NODES.filter((node) => node.at).length
+// The crawl reaches the top level and skips what's out of scope.
+const SKIP_AT = 2
+
+const byPath = new Map(NODES.map((node) => [node.path, node]))
+// Elbow from the parent down to the child.
+const edges = NODES.filter((node) => node.parent).map((node) => {
+  const from = byPath.get(node.parent!)!
+  const mid = (from.y + node.y) / 2
+  return {
+    d: `M${from.x} ${from.y + 8}V${mid}H${node.x}V${node.y - 8}`,
+    at: node.at,
+  }
+})
+
+const RULES = [
+  { key: 'scope', value: '/docs/**, /pricing/*', at: 1, until: PAGES },
+  { key: 'skip', value: '/blog, /careers', at: SKIP_AT, until: SKIP_AT + 1 },
+  { key: 'render', value: 'js when needed' },
+  { key: 'pace', value: '4 req/s' },
+]
+---
+
+<div
+  class:list={['absolute inset-0', className]}
+  aria-hidden="true"
+  data-steps
+  data-interval="550"
+  data-hold="1500"
+>
+  {/* The site */}
+  <div
+    class="absolute top-0 right-10 bottom-24 left-6 overflow-hidden panel-sunk rounded-lg"
+  >
+    <p
+      class="border-b border-line px-3 py-2 font-mono text-[11px] text-ink-muted"
+    >
+      example.com
+    </p>
+    <svg viewBox="0 0 300 146" class="mt-2 w-full font-mono" fill="none">
+      {/* Every branch, faint, so the site is there before the crawl */}
+      {
+        edges.map((edge) => (
+          <path
+            d={edge.d}
+            class="stroke-ink/15"
+            stroke-dasharray={edge.at ? undefined : '2 3'}
+          />
+        ))
+      }
+      {/* The crawl, drawn over the branches it takes */}
+      {
+        edges
+          .filter((edge) => edge.at)
+          .map((edge) => (
+            <path
+              d={edge.d}
+              pathLength="1"
+              class="model-edge stroke-ink/70"
+              data-at={edge.at}
+            />
+          ))
+      }
+      {
+        NODES.map((node) =>
+          node.at ? (
+            <g class="model-node" data-at={node.at}>
+              <rect
+                class="model-ping"
+                x={node.x - 26}
+                y={node.y - 8}
+                width="52"
+                height="16"
+                rx="4"
+              />
+              <rect
+                class="model-box"
+                x={node.x - 26}
+                y={node.y - 8}
+                width="52"
+                height="16"
+                rx="4"
+              />
+              <text
+                x={node.x}
+                y={node.y + 3}
+                text-anchor="middle"
+                font-size="8"
+                class="model-label"
+              >
+                {node.path}
+              </text>
+            </g>
+          ) : (
+            <g>
+              <rect
+                x={node.x - 26}
+                y={node.y - 8}
+                width="52"
+                height="16"
+                rx="4"
+                class="fill-surface-alt stroke-ink/20"
+                stroke-dasharray="2 3"
+              />
+              <text
+                x={node.x}
+                y={node.y + 3}
+                text-anchor="middle"
+                font-size="8"
+                class="fill-ink/30"
+              >
+                {node.path}
+              </text>
+              {/* Crossed off when the crawl passes it by */}
+              <path
+                class="model-strike stroke-ink/50"
+                d={`M${node.x - 20} ${node.y}H${node.x + 20}`}
+                pathLength="1"
+                data-at={SKIP_AT}
+              />
+            </g>
+          ),
+        )
+      }
+    </svg>
+  </div>
+
+  {/* The model, on top */}
+  <div
+    class="absolute right-4 bottom-4 left-16 panel-raised rounded-lg p-4 font-mono text-[11px] transition-transform duration-500 ease-66 group-hover:-translate-y-1"
+  >
+    <p class="text-ink-muted">models/docs-and-pricing.yaml</p>
+    <dl class="mt-3 grid grid-cols-[3.75rem_1fr]">
+      {
+        RULES.map((rule) => (
+          <div
+            class="model-rule col-span-2 -mx-1.5 grid grid-cols-subgrid rounded px-1.5 py-0.5"
+            data-at={rule.at}
+            data-until={rule.until}
+          >
+            <dt class="text-ink-muted">{rule.key}</dt>
+            <dd class="truncate text-ink">{rule.value}</dd>
+          </div>
+        ))
+      }
+    </dl>
+    {/* Pages fetched, one segment each */}
+    <div
+      class="mt-3 flex items-center gap-3 border-t border-line pt-3 text-ink-muted"
+    >
+      <div class="flex flex-1 gap-1">
+        {
+          NODES.filter((node) => node.at).map((node) => (
+            <span class="model-seg h-1 flex-1 rounded-full" data-at={node.at} />
+          ))
+        }
+      </div>
+      <span class="model-count tabular-nums">
+        {
+          Array.from({ length: PAGES + 1 }, (_, n) => (
+            <span
+              class:list={['model-n', n === PAGES && 'model-n-last']}
+              data-at={n}
+              data-until={n}
+            >
+              {n}
+            </span>
+          ))
+        }
+        {` / ${PAGES} pages`}
+      </span>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* Finished, as drawn without script; [data-playing] holds back the rest */
+  .model-edge {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+    transition: stroke-dashoffset 0.5s var(--ease-66);
+  }
+  [data-playing] .model-edge:not([data-on]) {
+    stroke-dashoffset: 1;
+    transition-duration: 0s;
+  }
+
+  .model-box {
+    fill: color-mix(in oklch, var(--color-ink) 10%, var(--color-surface-alt));
+    stroke: color-mix(in oklch, var(--color-ink) 70%, transparent);
+    transition:
+      fill 0.45s var(--ease-66),
+      stroke 0.45s var(--ease-66);
+  }
+  .model-label {
+    fill: var(--color-ink);
+    transition: fill 0.45s var(--ease-66);
+  }
+  [data-playing] .model-node:not([data-on]) .model-box {
+    fill: var(--color-surface-alt);
+    stroke: color-mix(in oklch, var(--color-ink) 25%, transparent);
+  }
+  [data-playing] .model-node:not([data-on]) .model-label {
+    fill: color-mix(in oklch, var(--color-ink) 45%, transparent);
+  }
+
+  /* A ring off each page as it's fetched */
+  .model-ping {
+    fill: none;
+    stroke: var(--color-ink);
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  [data-playing] .model-node[data-on] .model-ping {
+    animation: model-ping 0.8s var(--ease-66);
+  }
+  @keyframes model-ping {
+    from {
+      opacity: 0.8;
+      transform: scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: scale(1.35, 1.8);
+    }
+  }
+
+  .model-strike {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+    transition: stroke-dashoffset 0.5s var(--ease-66);
+  }
+  [data-playing] .model-strike:not([data-on]) {
+    stroke-dashoffset: 1;
+    transition-duration: 0s;
+  }
+
+  .model-rule {
+    transition: background-color 0.45s var(--ease-66);
+  }
+  .model-rule[data-on] {
+    background-color: color-mix(in oklch, var(--color-ink) 9%, transparent);
+  }
+
+  .model-seg {
+    background-color: var(--color-ink);
+    transition: background-color 0.45s var(--ease-66);
+  }
+  [data-playing] .model-seg:not([data-on]) {
+    background-color: color-mix(in oklch, var(--color-ink) 15%, transparent);
+  }
+
+  .model-n {
+    display: none;
+  }
+  .model-n-last,
+  [data-playing] .model-n[data-on] {
+    display: inline;
+  }
+  [data-playing] .model-n-last:not([data-on]) {
+    display: none;
+  }
+</style>

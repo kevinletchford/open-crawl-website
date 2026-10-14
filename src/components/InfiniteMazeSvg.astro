@@ -2,12 +2,20 @@
 /**
  * The first rings of an infinite maze (src/lib/maze/infinite.ts), rendered to
  * inline SVG at build time: one continuous maze of rings shrinking to a vanishing point, like
- * the reference maze. Walls are drawn in `currentColor`.
+ * the reference maze. Walls are drawn in `currentColor` at `wallOpacity`.
  *
- * `crawl` lights corridors reached within that many crawl steps, in
- * `--maze-trail` (default: the wall colour) at `--maze-trail-opacity`.
+ * `crawl` fills corridors reached within that many crawl steps (Infinity for
+ * the whole maze) with a
+ * crosshatch, one step at a time from the entrances, to show the path taken.
+ * The hatch is masked by the walls so it stays inside the corridors.
+ *
+ * `walk` instead plays a search from the entrance to the centre over
+ * `crawlDuration` seconds, down a few wrong turns before it finds the way in:
+ * as a line that backs out of dead ends ('line'), or as a fill flooding
+ * every corridor it tries at once, like water ('fill'): solid along the way
+ * in, a diagonal hatch down the wrong turns.
  */
-import { InfiniteMaze, infiniteMazePaths } from '@/lib/maze'
+import { InfiniteMaze, infiniteMazePaths, mazeWalk } from '@/lib/maze'
 
 interface Props {
   seed: number
@@ -19,8 +27,13 @@ interface Props {
   zoom?: number
   /** Half the width of the view, where 1 is the outermost drawn ring's edge. */
   frame?: number
-  /** Light corridors within this many crawl steps of the entrances. */
+  /** Fill corridors within this many crawl steps of the entrances. */
   crawl?: number
+  /** Seconds the crawl fill takes, however many steps it has. */
+  crawlDuration?: number
+  /** Play a search for the centre as a line or a fill. */
+  walk?: 'line' | 'fill'
+  wallOpacity?: number
   class?: string
   /** Accessible name. Omit for a decorative maze. */
   label?: string
@@ -34,6 +47,9 @@ const {
   zoom = 0,
   frame,
   crawl = 0,
+  crawlDuration = 3,
+  walk: walkStyle,
+  wallOpacity = 1,
   class: className,
   label,
 } = Astro.props
@@ -42,12 +58,29 @@ const maze = new InfiniteMaze({ seed, cells, ratio })
 // By default, frame the outer wall's outer edge: 1 plus half a wall.
 const r = frame ?? 1 + (maze.wall * (1 - maze.ratio)) / 2
 // Rings beyond the frame's corners can be left out.
-const { walls, floors } = infiniteMazePaths(maze, rings, {
+const {
+  walls,
+  floors,
+  rings: drawn,
+} = infiniteMazePaths(maze, rings, {
   zoom,
   view: r * Math.SQRT2,
 })
-const lit =
-  crawl > 0 ? floors.filter((f) => f.distance >= 0 && f.distance <= crawl) : []
+const fill = walkStyle === 'fill'
+const walk = walkStyle ? mazeWalk(maze, drawn, { zoom, seed, fill }) : undefined
+
+// One path per crawl step, so the hatch can fill in step by step.
+const steps: string[] = []
+if (crawl > 0) {
+  for (const f of floors) {
+    if (f.distance < 0 || f.distance > crawl) continue
+    steps[f.distance] = (steps[f.distance] ?? '') + f.d
+  }
+}
+const stepDelay = crawlDuration / Math.max(1, steps.length)
+const id = `infinite-maze-${seed}-${Math.random().toString(36).slice(2, 8)}`
+// About 4px between hatch lines at the hero's size.
+const pitch = (r * 2) / 90
 ---
 
 <svg
@@ -59,12 +92,162 @@ const lit =
   aria-hidden={label ? undefined : 'true'}
 >
   {
-    lit.length > 0 && (
-      <path
-        d={lit.map((f) => f.d).join('')}
-        style="fill: var(--maze-trail, currentColor); opacity: var(--maze-trail-opacity, 0.08)"
-      />
+    (steps.length > 0 || fill) && (
+      <>
+        <defs>
+          <pattern
+            id={`${id}-hatch`}
+            width={pitch}
+            height={pitch}
+            patternUnits="userSpaceOnUse"
+            patternTransform="rotate(45)"
+          >
+            <path
+              d={`M0 0V${pitch}M0 0H${pitch}`}
+              stroke="currentColor"
+              stroke-width={pitch / 5}
+            />
+          </pattern>
+          <pattern
+            id={`${id}-diagonal`}
+            width={pitch}
+            height={pitch}
+            patternUnits="userSpaceOnUse"
+            patternTransform="rotate(45)"
+          >
+            <path
+              d={`M0 0V${pitch}`}
+              stroke="currentColor"
+              stroke-width={pitch / 3}
+            />
+          </pattern>
+          <mask
+            id={`${id}-corridors`}
+            maskUnits="userSpaceOnUse"
+            x={-r}
+            y={-r}
+            width={r * 2}
+            height={r * 2}
+          >
+            <circle r={r} fill="white" />
+            <path d={walls} fill="black" />
+          </mask>
+          {walk?.edges
+            .filter((edge) => edge.clip)
+            .map((edge) => (
+              <clipPath id={`${id}-centre`}>
+                <circle r={edge.clip} />
+              </clipPath>
+            ))}
+        </defs>
+        <g
+          fill={`url(#${id}-hatch)`}
+          mask={`url(#${id}-corridors)`}
+          style={`--step-delay: ${stepDelay}s`}
+        >
+          {steps.map(
+            (d, step) =>
+              d && <path d={d} class="maze-step" style={`--step: ${step}`} />,
+          )}
+        </g>
+      </>
     )
   }
-  <path d={walls} fill="currentColor"></path>
+  <path d={walls} fill="currentColor" fill-opacity={wallOpacity}></path>
+  {
+    walk && (
+      <g
+        data-maze-walk={fill ? walk.flowLength : walk.length}
+        data-duration={crawlDuration}
+        data-keep={fill ? '' : undefined}
+        fill="none"
+        stroke="currentColor"
+        stroke-width={(r * 2) / 160}
+        stroke-linecap={fill ? 'square' : 'round'}
+        stroke-linejoin="round"
+        mask={fill ? `url(#${id}-corridors)` : undefined}
+      >
+        {walk.edges.map((edge, index) => (
+          <path
+            d={edge.d}
+            pathLength="1"
+            stroke-dasharray="1"
+            stroke-dashoffset="1"
+            visibility="hidden"
+            stroke-width={fill ? edge.width : undefined}
+            stroke-linecap={edge.clip || index === 0 ? 'butt' : undefined}
+            stroke={fill && edge.detour ? `url(#${id}-diagonal)` : undefined}
+            clip-path={edge.clip ? `url(#${id}-centre)` : undefined}
+            data-forward={fill ? edge.flow : edge.forward}
+            data-back={edge.back}
+            data-length={edge.length}
+          />
+        ))}
+      </g>
+    )
+  }
 </svg>
+
+<style>
+  .maze-step {
+    animation: maze-fill 0.4s ease-out both;
+    animation-delay: calc(0.3s + var(--step) * var(--step-delay));
+  }
+  @keyframes maze-fill {
+    from {
+      opacity: 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .maze-step {
+      animation: none;
+    }
+  }
+</style>
+
+<script>
+  // Play each walk back at a constant speed: an edge draws in when the line
+  // goes down it and draws back out if the line returns, so only the current
+  // path from the entrance is ever showing. A kept walk (the fill) never
+  // draws back out, and floods all its corridors at once, like water.
+  const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+  for (const walk of document.querySelectorAll<SVGGElement>(
+    '[data-maze-walk]',
+  )) {
+    const total = Number(walk.dataset.mazeWalk)
+    const duration = Number(walk.dataset.duration) * 1000
+    const keep = walk.dataset.keep !== undefined
+    const edges = [...walk.querySelectorAll<SVGPathElement>('path')].map(
+      (path) => ({
+        path,
+        forward: Number(path.dataset.forward),
+        back: Number(path.dataset.back),
+        length: Number(path.dataset.length),
+      }),
+    )
+
+    const paint = (at: number) => {
+      for (const { path, forward, back, length } of edges) {
+        const drawn = Math.min(1, Math.max(0, (at - forward) / length))
+        const undrawn =
+          back < 0 || keep ? 0 : Math.min(1, Math.max(0, (at - back) / length))
+        path.style.strokeDashoffset = String(1 - drawn + undrawn)
+        // Round caps would leave a dot on an empty edge.
+        path.style.visibility = drawn > undrawn ? 'visible' : 'hidden'
+      }
+    }
+
+    if (still) {
+      paint(total)
+      continue
+    }
+    const begin = performance.now() + 300
+    const tick = (now: number) => {
+      const t = Math.min(1, Math.max(0, (now - begin) / duration))
+      paint(t * total)
+      if (t < 1) requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  }
+</script>

@@ -1,0 +1,31 @@
+---
+/**
+ * The crawl's requests in the request log's look, in one of five
+ * treatments, all from the same log:
+ *
+ * - `stream`: each request opens a line at the top and rolls in.
+ * - `inflight`: lines open as requests go out and land when they return.
+ * - `workers`: a line per worker, rolling over in place.
+ * - `totals`: running totals on odometer wheels above the log.
+ * - `tape`: a ticker tape, with the newest request large above it.
+ */
+import InFlight from './ticker/InFlight.astro'
+import Stream from './ticker/Stream.astro'
+import Tape from './ticker/Tape.astro'
+import Totals from './ticker/Totals.astro'
+import Workers from './ticker/Workers.astro'
+import type { LogEntry } from '@/data/demo'
+
+interface Props {
+  entries: LogEntry[]
+  variant?: 'stream' | 'inflight' | 'workers' | 'totals' | 'tape'
+  class?: string
+}
+const { entries, variant = 'stream', class: className } = Astro.props
+---
+
+{variant === 'stream' && <Stream entries={entries} class={className} />}
+{variant === 'inflight' && <InFlight entries={entries} class={className} />}
+{variant === 'workers' && <Workers entries={entries} class={className} />}
+{variant === 'totals' && <Totals entries={entries} class={className} />}
+{variant === 'tape' && <Tape entries={entries} class={className} />}

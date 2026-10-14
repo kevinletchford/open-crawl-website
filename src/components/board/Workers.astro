@@ -1,0 +1,110 @@
+---
+/**
+ * A line per crawl worker, like gates on an airport board: each shows the
+ * request that worker is on, and only that line turns over when it moves
+ * to the next. The board changes a little at a time, never all at once.
+ */
+import Figure from '@/components/data/Figure.astro'
+import type { LogEntry } from '@/data/demo'
+import FlapText from './FlapText.astro'
+import { type Column, fitStyle, startTime, values } from './board'
+
+interface Props {
+  entries: LogEntry[]
+  class?: string
+}
+
+const { entries, class: className } = Astro.props
+
+const COLUMNS: Column[] = [
+  { key: 'worker', head: 'Worker', width: 2 },
+  { key: 'path', head: 'Path', width: 20, mobile: 14 },
+  { key: 'status', head: 'Status', width: 3 },
+  { key: 'ms', head: 'Took', width: 5, mobile: 0, align: 'right', muted: true },
+  { key: 'time', head: 'At', width: 8, mobile: 0, muted: true },
+]
+const data = entries.map(values)
+const workers = [...new Set(entries.map((e) => e.worker))].sort()
+// Each worker's line starts on its first request.
+const shown: Record<string, string>[] = workers.map((w, i) => ({
+  ...data[entries.findIndex((e) => e.worker === w)],
+  time: startTime(i, 1),
+}))
+---
+
+<Figure title="Workers" class={className} bodyClass="px-6 py-6 sm:px-8 sm:py-7">
+  <div
+    class="flap-board"
+    data-board="workers"
+    data-entries={JSON.stringify(data)}
+  >
+    <div
+      class="flap-fit flex justify-between font-mono"
+      style={fitStyle(COLUMNS, 15)}
+    >
+      {
+        COLUMNS.map((col) => (
+          <div
+            class:list={[
+              'flex flex-col gap-[0.45em]',
+              col.mobile === 0 && 'max-sm:hidden',
+              col.align === 'right' && 'items-end',
+            ]}
+          >
+            <span class="mb-[0.3em] font-sans text-xs text-ink-muted">
+              {col.head}
+            </span>
+            {shown.map((v, r) => (
+              <FlapText
+                col={col.key}
+                r={r}
+                text={v[col.key]}
+                width={col.width}
+                mobile={col.mobile}
+                align={col.align}
+                muted={col.muted}
+              />
+            ))}
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</Figure>
+
+<script>
+  import { fresh } from '@/scripts/data/fresh'
+  import { clock, every, row, writeRow } from '@/scripts/data/flap'
+  import { onReveal, still } from '@/scripts/data/reveal'
+
+  for (const root of fresh('[data-board="workers"]')) {
+    const data: Record<string, string>[] = JSON.parse(root.dataset.entries!)
+    const lines = new Map(
+      [...root.querySelectorAll<HTMLElement>('[data-col="worker"]')].map(
+        (el) => [
+          el.textContent!.replace(/\s/g, ''),
+          row(root, Number(el.dataset.r)),
+        ],
+      ),
+    )
+    let next = lines.size
+
+    // Waking up, each line's clock turns to a moment ago.
+    if (!still)
+      onReveal(root.closest('figure')!, () =>
+        [...lines.values()].forEach((groups, r) =>
+          writeRow(
+            groups.filter((g) => g.dataset.col === 'time'),
+            { time: clock((r + 1) * 1100) },
+            { delay: 300 + r * 120, stagger: 40 },
+          ),
+        ),
+      )
+
+    every(root, 1600, () => {
+      const v = data[next++ % data.length]
+      const line = lines.get(v.worker)
+      if (line) writeRow(line, { ...v, time: clock() }, { stagger: 28 })
+    })
+  }
+</script>

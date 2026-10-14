@@ -1,0 +1,32 @@
+---
+/**
+ * The ways in and out of a crawl ("Drive it from anything. Send results
+ * anywhere."), in one of five treatments, all from `src/data/interfaces.ts`:
+ *
+ * - `switchboard`: inputs and outputs wired through the engine.
+ * - `console`: a tab per interface, its snippet typed out in a terminal.
+ * - `ticker`: two rails scrolling in opposite directions.
+ * - `maze`: doors into and out of a maze, the route drawn between them.
+ * - `decoder`: the sentence, its two words scrambling through the list.
+ */
+import Console from './interfaces/Console.astro'
+import Decoder from './interfaces/Decoder.astro'
+import MazeRoute from './interfaces/MazeRoute.astro'
+import Switchboard from './interfaces/Switchboard.astro'
+import Ticker from './interfaces/Ticker.astro'
+
+interface Props {
+  variant?: 'switchboard' | 'console' | 'ticker' | 'maze' | 'decoder'
+  class?: string
+}
+const { variant = 'switchboard', class: className } = Astro.props
+const Variant = {
+  switchboard: Switchboard,
+  console: Console,
+  ticker: Ticker,
+  maze: MazeRoute,
+  decoder: Decoder,
+}[variant]
+---
+
+<Variant class={className} />

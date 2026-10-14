@@ -1,0 +1,74 @@
+---
+/**
+ * The request log as a tail: each request opens a line at the top, its
+ * values rolling in left to right, and the duration turning up from zero
+ * like an odometer. The rest ease down to make room.
+ */
+import Figure from '@/components/data/Figure.astro'
+import type { LogEntry } from '@/data/demo'
+import Live from './Live.astro'
+import LogHead from './LogHead.astro'
+import LogLine from './LogLine.astro'
+import TickerStyles from './TickerStyles.astro'
+import { line, stamp } from './ticker'
+
+interface Props {
+  entries: LogEntry[]
+  /** Lines on screen at once. */
+  rows?: number
+  title?: string
+  caption?: string
+  class?: string
+}
+
+const {
+  entries,
+  rows = 9,
+  title = 'Requests',
+  caption,
+  class: className,
+} = Astro.props
+const lines = entries.map(line)
+---
+
+<TickerStyles />
+<Figure title={title} caption={caption} class={className} bodyClass="">
+  <Live slot="aside" />
+  <div
+    data-ticker="stream"
+    data-rows={rows}
+    data-entries={JSON.stringify(lines)}
+  >
+    <LogHead />
+    <ol
+      class="h-[calc(var(--rows)*(2.5rem+1px))] overflow-hidden"
+      style={`--rows: ${rows}`}
+      data-list
+    >
+      {lines.slice(0, rows).map((l, i) => <LogLine line={l} time={stamp(i)} />)}
+    </ol>
+    <template><LogLine /></template>
+  </div>
+</Figure>
+
+<script>
+  import { fresh } from '@/scripts/data/fresh'
+  import { fill, now, prepend, tick, wake } from '@/scripts/data/ticker'
+  import type { Line } from '@/components/ticker/ticker'
+
+  for (const root of fresh('[data-ticker="stream"]')) {
+    const data: Line[] = JSON.parse(root.dataset.entries!)
+    const list = root.querySelector<HTMLElement>('[data-list]')!
+    const template = root.querySelector('template')!
+    const rows = Number(root.dataset.rows)
+    let next = rows
+
+    // Coming into view, the clocks roll down the log to the last few seconds.
+    wake(root)
+
+    tick(root, 1500, 2600, () => {
+      const v = data[next++ % data.length]
+      fill(prepend(list, template, rows), { ...v, time: now() }, { delay: 220 })
+    })
+  }
+</script>

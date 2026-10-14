@@ -1,0 +1,66 @@
+---
+/**
+ * The steps as one terminal session, read top to bottom: each step's title
+ * is a comment heading its block, with its number in the gutter, so the
+ * three read as a single run from URL to results. Blocks fade in one after
+ * another when the session scrolls into view.
+ */
+import Figure from '@/components/data/Figure.astro'
+import { STEPS, prompt } from '@/data/steps'
+
+interface Props {
+  class?: string
+}
+const { class: className } = Astro.props
+---
+
+<div class:list={['grid gap-10 lg:grid-cols-[1fr_1.4fr] lg:gap-16', className]}>
+  <ol class="space-y-8 self-center">
+    {
+      STEPS.map((step, i) => (
+        <li class="grid grid-cols-[2.5rem_1fr] gap-x-4">
+          <span class="font-mono text-sm leading-7 text-ink-muted">
+            0{i + 1}
+          </span>
+          <div>
+            <h3 class="text-lg font-semibold">{step.title}</h3>
+            <p class="mt-1 text-ink-muted">{step.body}</p>
+          </div>
+        </li>
+      ))
+    }
+  </ol>
+
+  <Figure bodyClass="" caption="Illustrative session">
+    <div class="overflow-x-auto py-6 font-mono text-xs leading-6 sm:text-sm">
+      {
+        STEPS.map((step, i) => (
+          <div
+            class:list={[
+              'fade grid grid-cols-[2.5rem_1fr] px-2 sm:px-4',
+              i > 0 && 'mt-4 border-t border-line pt-4',
+            ]}
+            style={`--delay: ${i * 450}ms`}
+          >
+            <span class="text-right text-ink-muted select-none">{i + 1}</span>
+            <div class="pl-4">
+              <code
+                class="block whitespace-pre text-ink-muted"
+                set:text={`# ${step.title.toLowerCase()}`}
+              />
+              {step.snippet.map((line) => (
+                <code class="block whitespace-pre">
+                  <span class="text-ink-muted" set:text={prompt(line)} />
+                  <span
+                    class={line.startsWith('  ') ? 'text-ink-muted' : undefined}
+                    set:text={line.slice(prompt(line).length)}
+                  />
+                </code>
+              ))}
+            </div>
+          </div>
+        ))
+      }
+    </div>
+  </Figure>
+</div>

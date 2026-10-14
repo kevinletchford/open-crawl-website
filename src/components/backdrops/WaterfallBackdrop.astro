@@ -1,0 +1,119 @@
+---
+/**
+ * A network waterfall: one row per request, each bar split into the wait
+ * (outline) and the download (solid), cascading left to right the way a
+ * crawl fans out over time. Hatched bars are requests that were blocked.
+ *
+ * Use in a `Section`'s `backdrop` slot; position it with `class`.
+ */
+import { mulberry32 } from '@/lib/maze/rng'
+
+interface Props {
+  seed?: number
+  /** Number of request rows. */
+  requests?: number
+  class?: string
+}
+
+const { seed = 5, requests = 34, class: className = 'inset-0' } = Astro.props
+
+const W = 1200
+const ROW = 18
+const BAR = 8
+const H = requests * ROW
+const rng = mulberry32(seed)
+
+let start = 0
+const bars = Array.from({ length: requests }, () => {
+  start += rng() * (W / requests) * 1.4
+  const wait = 20 + rng() * 120
+  const load = 30 + rng() * 260
+  return {
+    x: Math.min(start, W - 60),
+    wait,
+    load,
+    blocked: rng() < 0.1,
+  }
+})
+---
+
+<div
+  class:list={['waterfall pointer-events-none absolute -z-10', className]}
+  aria-hidden="true"
+>
+  <svg
+    viewBox={`0 0 ${W} ${H}`}
+    preserveAspectRatio="xMidYMid slice"
+    class="size-full"
+  >
+    <defs>
+      <pattern
+        id={`waterfall-hatch-${seed}`}
+        width="5"
+        height="5"
+        patternUnits="userSpaceOnUse"
+        patternTransform="rotate(-45)"
+      >
+        <rect width="1" height="5" fill="white" opacity="0.4"></rect>
+      </pattern>
+    </defs>
+    {
+      [0.25, 0.5, 0.75].map((t) => (
+        <line
+          x1={W * t}
+          x2={W * t}
+          y1="0"
+          y2={H}
+          stroke="white"
+          stroke-opacity="0.06"
+        />
+      ))
+    }
+    {
+      bars.map((bar, i) => {
+        const y = i * ROW + (ROW - BAR) / 2
+        return bar.blocked ? (
+          <rect
+            x={bar.x}
+            y={y}
+            width={bar.wait + bar.load}
+            height={BAR}
+            rx="2"
+            fill={`url(#waterfall-hatch-${seed})`}
+          />
+        ) : (
+          <g>
+            <rect
+              x={bar.x + 0.5}
+              y={y + 0.5}
+              width={bar.wait}
+              height={BAR - 1}
+              rx="2"
+              fill="none"
+              stroke="white"
+              stroke-opacity="0.3"
+            />
+            <rect
+              x={bar.x + bar.wait + 2}
+              y={y}
+              width={bar.load}
+              height={BAR}
+              rx="2"
+              fill="white"
+              fill-opacity={0.18 + (i % 5) * 0.06}
+            />
+          </g>
+        )
+      })
+    }
+  </svg>
+</div>
+
+<style>
+  .waterfall {
+    mask-image:
+      linear-gradient(to right, transparent, #000 20%, #000 80%, transparent),
+      linear-gradient(to bottom, transparent, #000 25%, #000 75%, transparent);
+    mask-composite: intersect;
+  }
+</style>

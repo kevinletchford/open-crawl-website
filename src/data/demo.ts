@@ -49,12 +49,12 @@ export const METRICS: Metric[] = [
     series: walk(1, 9210, 12480),
   },
   {
-    label: 'Readable by every agent',
-    value: 59.7,
-    previous: 54.1,
+    label: 'Fetched without error',
+    value: 97.4,
+    previous: 95.8,
     format: 'pct',
     higherIsBetter: true,
-    series: walk(2, 41.2, 59.7),
+    series: walk(2, 93.1, 97.4),
   },
   {
     label: 'Median response',
@@ -65,12 +65,12 @@ export const METRICS: Metric[] = [
     series: walk(3, 268, 182),
   },
   {
-    label: 'AI readability score',
-    value: 71,
-    previous: 65,
-    format: 'score',
+    label: 'Pages a second',
+    value: 208,
+    previous: 186,
+    format: 'number',
     higherIsBetter: true,
-    series: walk(4, 52, 71),
+    series: walk(4, 151, 208),
   },
 ]
 
@@ -168,23 +168,23 @@ export interface FunnelLoss {
   id: string
   label: string
   value: number
-  icon: 'blocked' | 'redirect' | 'render' | 'structure'
+  icon: 'blocked' | 'redirect' | 'render' | 'structure' | 'hook'
 }
 
 export const FUNNEL: { stages: FunnelStage[]; losses: FunnelLoss[] } = {
   stages: [
     { id: 'discovered', label: 'Discovered', value: 12480 },
-    { id: 'allowed', label: 'Allowed', value: 10920 },
-    { id: 'fetched', label: 'Fetched', value: 10410 },
-    { id: 'rendered', label: 'Visible without JS', value: 8270 },
-    { id: 'readable', label: 'Readable', value: 7450 },
+    { id: 'allowed', label: 'Allowed', value: 11640 },
+    { id: 'fetched', label: 'Fetched', value: 11130 },
+    { id: 'unique', label: 'Unique', value: 10210 },
+    { id: 'delivered', label: 'Delivered', value: 9870 },
   ],
   losses: [
     {
       from: 'discovered',
       id: 'robots',
-      label: 'Blocked by rules',
-      value: 1560,
+      label: 'Disallowed by robots.txt',
+      value: 840,
       icon: 'blocked',
     },
     {
@@ -196,17 +196,17 @@ export const FUNNEL: { stages: FunnelStage[]; losses: FunnelLoss[] } = {
     },
     {
       from: 'fetched',
-      id: 'js-only',
-      label: 'JavaScript only',
-      value: 2140,
-      icon: 'render',
+      id: 'duplicates',
+      label: 'Duplicates and canonicals',
+      value: 920,
+      icon: 'structure',
     },
     {
-      from: 'rendered',
-      id: 'thin',
-      label: 'Thin or unstructured',
-      value: 820,
-      icon: 'structure',
+      from: 'unique',
+      id: 'filtered',
+      label: 'Dropped by your hooks',
+      value: 340,
+      icon: 'hook',
     },
   ],
 }
@@ -427,10 +427,11 @@ export interface LogEntry {
   method: 'GET' | 'HEAD'
   status: number
   path: string
-  agent: Agent
+  /** Which of the crawler's concurrent workers made the request. */
+  worker: number
   ms: number
   bytes: number
-  /** The robots.txt line that decided a 403 or skipped fetch. */
+  /** The rule that decided a 403 or skipped fetch, when one did. */
   rule?: string
   location?: string
 }
@@ -440,11 +441,10 @@ const LOG_PATHS = [
   '/pricing',
   '/docs/getting-started',
   '/docs/api/crawl',
-  '/docs/api/audit',
-  '/blog/how-ai-crawlers-read-your-site',
-  '/blog/llms-txt-explained',
+  '/docs/api/hooks',
+  '/blog/crawling-at-scale',
+  '/blog/polite-crawling',
   '/products/crawler',
-  '/products/audit',
   '/products/mcp',
   '/about',
   '/careers',
@@ -460,14 +460,14 @@ function log(seed: number, length: number): LogEntry[] {
     items[Math.floor(rng() * items.length)]
   return Array.from({ length }, () => {
     const path = pick(LOG_PATHS)
-    const agent = pick(AGENTS)
+    const worker = 1 + Math.floor(rng() * 4)
     const ms = Math.round(90 + rng() ** 2 * 900)
     if (path === '/old-pricing') {
       return {
         method: 'GET',
         status: 301,
         path,
-        agent,
+        worker,
         ms: Math.round(ms / 4),
         bytes: 0,
         location: '/pricing',
@@ -475,27 +475,12 @@ function log(seed: number, length: number): LogEntry[] {
     }
     if (path.startsWith('/app/')) {
       return {
-        method: 'HEAD',
+        method: 'GET',
         status: 403,
         path,
-        agent,
+        worker,
         ms: Math.round(ms / 5),
         bytes: 0,
-        rule: 'robots.txt line 3 · Disallow: /app/',
-      }
-    }
-    if (
-      path.startsWith('/docs/') &&
-      (agent === 'GPTBot' || agent === 'Google-Extended')
-    ) {
-      return {
-        method: 'HEAD',
-        status: 403,
-        path,
-        agent,
-        ms: Math.round(ms / 5),
-        bytes: 0,
-        rule: 'robots.txt line 14 · Disallow: /docs/',
       }
     }
     const failed = rng() < 0.05
@@ -503,7 +488,7 @@ function log(seed: number, length: number): LogEntry[] {
       method: 'GET',
       status: failed ? pick([404, 500, 503]) : 200,
       path,
-      agent,
+      worker,
       ms,
       bytes: failed ? 512 : Math.round(8000 + rng() * 90000),
     }
